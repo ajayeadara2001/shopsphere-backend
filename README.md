@@ -18,7 +18,7 @@ users, categories and products.
 - User registration and login with BCrypt-hashed passwords
 - Stateless JWT authentication
 - Role-based authorization (`CUSTOMER`, `ADMIN`) using `@PreAuthorize`
-- Partial updates (PATCH) with Bean Validation groups
+- Partial updates with Bean Validation groups
 - Centralized exception handling with a consistent JSON error format
 - Admin-only category and product management
 - Default admin seeded on first startup
@@ -28,35 +28,58 @@ users, categories and products.
 ### Prerequisites
 
 - JDK 21
-- Maven 3.9+
 - PostgreSQL
+- Maven 3.9+ (optional, the included Maven wrapper works without it)
 
 ### Setup
 
 1. Clone the repository
+
 ```bash
    git clone https://github.com/ajayeadara2001/shopsphere-backend.git
-   cd <your-repo>
+   cd shopsphere-backend
 ```
+
 2. Create the database
+
 ```sql
-    CREATE DATABASE shopsphere_db;
+   CREATE DATABASE shopsphere_db;
 ```
+
 3. Set the environment variables
 
    | Variable | Description |
+   |---|---|
    | `DB_PASSWORD` | PostgreSQL password for user `postgres` |
    | `JWT_SECRET` | Base64-encoded secret of at least 32 bytes |
 
    Generate a JWT secret with:
+
 ```bash
    openssl rand -base64 32
 ```
-4. Run the application
+
+   Set them in your terminal before running the app:
+
 ```bash
-   mvn spring-boot:run
+   # macOS / Linux
+   export DB_PASSWORD=your_password
+   export JWT_SECRET=your_base64_secret
 ```
-The API starts on `http://localhost:8080`.
+
+```powershell
+   # Windows PowerShell
+   $env:DB_PASSWORD="your_password"
+   $env:JWT_SECRET="your_base64_secret"
+```
+
+4. Run the application
+
+```bash
+   ./mvnw spring-boot:run
+```
+
+   On Windows use `mvnw.cmd spring-boot:run`. The API starts on `http://localhost:8080`.
 
 ### Default admin
 
@@ -67,6 +90,7 @@ outside local development.
 ## API Overview
 
 | Method | Endpoint | Access | Description |
+|---|---|---|---|
 | POST | `/api/v1/auth/register` | Public | Register a customer |
 | POST | `/api/v1/auth/login` | Public | Log in and receive a JWT |
 | GET | `/api/v1/users` | Admin | List users (paginated) |
@@ -91,6 +115,7 @@ outside local development.
 Send the token as `Authorization: Bearer <token>`.
 
 ### Error format
+
 ```json
 {
   "timeStamp": "2026-10-18 15:55:06",
@@ -101,6 +126,8 @@ Send the token as `Authorization: Bearer <token>`.
 ```
 
 ## Project Structure
+
+```
 com.shopsphere
 ├── config        # Security config, data seeding
 ├── controller    # REST controllers
@@ -115,6 +142,7 @@ com.shopsphere
 ```
 
 ## Roadmap
+
 - [ ] Cart and orders
 - [ ] Payment integration
 - [ ] Unit and integration tests
@@ -122,7 +150,9 @@ com.shopsphere
 - [ ] Swagger / OpenAPI documentation
 
 ## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+This project is licensed under the MIT License. See the [LICENSE.md](LICENSE.md) file for details.
 
 ## Author
+
 **Ajay Shankar Ganesh Eadara**: [LinkedIn](https://linkedin.com/in/ajay-shankar-ganesh-eadara-69821241a/) · [GitHub](https://github.com/ajayeadara2001)
