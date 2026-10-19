@@ -20,11 +20,7 @@ import java.util.Optional;
 public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
-    public Category getCategory(Long categoryId){
-        return categoryRepository.findById(categoryId)
-                .orElseThrow(()-> new CategoryNotFoundException(
-                        "Category not found for Id: "+categoryId));
-    }
+
     @Override
     @Transactional
     public CategoryResponseDto createCategory(CategoryRequestDto categoryRequestDto) {
@@ -70,14 +66,14 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public CategoryResponseDto getCategoryById(Long categoryId) {
-        Category existingCategory=getCategory(categoryId);
+        Category existingCategory=categoryMapper.getCategory(categoryId);
         return categoryMapper.mapCategoryToResponse(existingCategory);
     }
 
     @Override
     @Transactional
     public CategoryResponseDto updateCategory(Long categoryId, CategoryRequestDto categoryRequestDto) {
-        Category existingCategory=getCategory(categoryId);
+        Category existingCategory=categoryMapper.getCategory(categoryId);
         existingCategory.setCategoryName(categoryRequestDto.getCategoryName());
         existingCategory.setDescription(categoryRequestDto.getDescription());
         return categoryMapper.mapCategoryToResponse(categoryRepository.save(existingCategory));
@@ -86,7 +82,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public void deleteCategory(Long categoryId) {
-        Category existingCategory=getCategory(categoryId);
+        Category existingCategory=categoryMapper.getCategory(categoryId);
         if(!existingCategory.getActive().equals(true)){
             throw new IllegalArgumentException("Category is already inactive.");
         }
@@ -97,7 +93,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryResponseDto activateCategory(Long categoryId) {
-        Category existingCategory=getCategory(categoryId);
+        Category existingCategory=categoryMapper.getCategory(categoryId);
         if(existingCategory.getActive().equals(true)){
             throw new IllegalArgumentException("Category is already active.");
         }

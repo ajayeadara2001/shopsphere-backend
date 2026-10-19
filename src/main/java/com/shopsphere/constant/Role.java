@@ -1,5 +1,5 @@
 package com.shopsphere.constant;
 
-public enum Roles {
+public enum Role {
     ADMIN,CUSTOMER
 }

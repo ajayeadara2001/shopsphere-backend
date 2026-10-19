@@ -1,18 +1,15 @@
 package com.shopsphere.service.serviceImpl;
 
-import com.shopsphere.constant.Roles;
+import com.shopsphere.constant.Role;
 import com.shopsphere.dto.UserRequestDto;
 import com.shopsphere.dto.UserResponseDto;
 import com.shopsphere.entity.User;
 import com.shopsphere.exception.AccessDeniedException;
 import com.shopsphere.exception.EmailAlreadyPresentException;
-import com.shopsphere.exception.UserNotFoundException;
 import com.shopsphere.mapper.UserMapper;
 import com.shopsphere.repository.UserRepository;
 import com.shopsphere.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +25,6 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
 
-    public User getUser(Long userId){
-        return userRepository.findById(userId)
-                .orElseThrow(()-> new UserNotFoundException("User not found for Id: "+userId));
-    }
-    public User getCurrentUser(){
-        Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
-        String email=authentication.getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(()-> new UserNotFoundException("User not found"));
-    }
-
     @Override
     @Transactional
     public UserResponseDto registerUser(UserRequestDto userRequestDto) {
@@ -52,14 +38,14 @@ public class UserServiceImpl implements UserService {
         newUser.setEmail(userRequestDto.getEmail());
         newUser.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
         newUser.setPhoneNo(userRequestDto.getPhoneNo());
-        newUser.setRole(Roles.CUSTOMER);
+        newUser.setRole(Role.CUSTOMER);
         return userMapper.mapUserToTheResponse(userRepository.save(newUser));
     }
 
     @Override
     @Transactional(readOnly = true)
     public UserResponseDto getUserById(Long userId) {
-        User existingUser=getUser(userId);
+        User existingUser=userMapper.getUser(userId);
         return userMapper.mapUserToTheResponse(existingUser);
     }
 
@@ -77,11 +63,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponseDto updateUser(Long userId, UserRequestDto userRequestDto) {
-        User user= getCurrentUser();
-        if(user.getRole()!= Roles.ADMIN && !user.getUserId().equals(userId)){
+        User user= userMapper.getCurrentUser();
+        if(user.getRole()!= Role.ADMIN && !user.getUserId().equals(userId)){
             throw new AccessDeniedException("You are not authorized to update this user.");
         }
-        User existingUser=getUser(userId);
+        User existingUser=userMapper.getUser(userId);
         Optional<User> userWithEmail=userRepository.findByEmail(userRequestDto.getEmail());
         if(userWithEmail.isPresent() && !userWithEmail.get().getUserId().equals(userId)){
             throw new EmailAlreadyPresentException("Email Already exists");
@@ -104,7 +90,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUser(Long userId) {
-        User existingUser=getUser(userId);
+        User existingUser=userMapper.getUser(userId);
         userRepository.delete(existingUser);
     }
 }

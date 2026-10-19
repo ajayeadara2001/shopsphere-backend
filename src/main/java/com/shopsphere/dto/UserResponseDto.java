@@ -1,7 +1,7 @@
 package com.shopsphere.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.shopsphere.constant.Roles;
+import com.shopsphere.constant.Role;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -16,7 +16,7 @@ public class UserResponseDto {
     private String userName;
     private String email;
     private String phoneNo;
-    private Roles role;
+    private Role role;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 

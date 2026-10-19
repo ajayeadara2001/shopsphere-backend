@@ -1,5 +1,6 @@
 package com.shopsphere.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -19,7 +20,9 @@ public class ProductResponseDto {
     private String brand;
     private String imageUrl;
     private Boolean active;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
     private Long categoryId;
     private String categoryName;

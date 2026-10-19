@@ -98,4 +98,58 @@ public class GlobalExceptionHandler {
         );
         return new ResponseEntity<>(errorResponseDto,HttpStatus.NOT_FOUND);
     }
+
+    @ExceptionHandler(CartNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> cartNotFoundException(CartNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CartItemsNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> cartItemsNotFoundException(CartItemsNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(OrderStatusException.class)
+    public ResponseEntity<ErrorResponseDto> orderStatusException(OrderStatusException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage()
+        ),HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> orderNotFoundException(OrderNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(PaymentNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> paymentNotFoundException(PaymentNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(PaymentStatusException.class)
+    public ResponseEntity<ErrorResponseDto> paymentStatusException(PaymentStatusException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage()
+        ),HttpStatus.CONFLICT);
+    }
 }

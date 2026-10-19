@@ -1,6 +1,6 @@
 package com.shopsphere.entity;
 
-import com.shopsphere.constant.Roles;
+import com.shopsphere.constant.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,7 +24,7 @@ public class User {
     private String password;
     private String phoneNo;
     @Enumerated(EnumType.STRING)
-    private Roles role;
+    private Role role;
     private LocalDateTime createdAt;
 
 

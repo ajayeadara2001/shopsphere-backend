@@ -6,6 +6,7 @@ import com.shopsphere.entity.Category;
 import com.shopsphere.entity.Product;
 import com.shopsphere.exception.CategoryNotFoundException;
 import com.shopsphere.exception.ProductNotFoundException;
+import com.shopsphere.mapper.CategoryMapper;
 import com.shopsphere.mapper.ProductMapper;
 import com.shopsphere.repository.CategoryRepository;
 import com.shopsphere.repository.ProductRepository;
@@ -23,21 +24,14 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
-    public Product getProduct(Long productId){
-        return productRepository.findByProductIdAndActiveTrue(productId)
-                .orElseThrow(()-> new ProductNotFoundException(
-                        "Product not found for Id :"+productId));
-    }
-    public Category getCategory(Long categoryId){
-        return categoryRepository.findById(categoryId)
-                .orElseThrow(()-> new CategoryNotFoundException(
-                        "Category not found for Id: "+categoryId));
-    }
+    private final CategoryMapper categoryMapper;
+
+
 
     @Override
     @Transactional
     public ProductResponseDto createProduct(ProductRequestDto productRequestDto) {
-        Category category=getCategory(productRequestDto.getCategoryId());
+        Category category=categoryMapper.getCategory(productRequestDto.getCategoryId());
         if(!category.getActive().equals(true)){
             throw new IllegalArgumentException("Product cannot be created under an inactive category.");
         }
@@ -78,18 +72,18 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public ProductResponseDto getProductById(Long productId) {
-        Product existingProduct=getProduct(productId);
+        Product existingProduct=productMapper.getProduct(productId);
         return productMapper.mapProductToResponse(existingProduct);
     }
 
     @Override
     @Transactional
     public ProductResponseDto updateProduct(Long productId, ProductRequestDto productRequestDto) {
-        Category category=getCategory(productRequestDto.getCategoryId());
+        Category category=categoryMapper.getCategory(productRequestDto.getCategoryId());
         if(!category.getActive().equals(true)){
             throw new IllegalArgumentException("Product cannot be assigned under an inactive category.");
         }
-        Product existingProduct=getProduct(productId);
+        Product existingProduct=productMapper.getProduct(productId);
         if(productRequestDto.getProductName()!=null){
             existingProduct.setProductName(productRequestDto.getProductName());
         }
@@ -114,7 +108,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void deleteProduct(Long productId) {
-        Product existingProduct=getProduct(productId);
+        Product existingProduct=productMapper.getProduct(productId);
         if(!existingProduct.getActive().equals(true)){
             throw new IllegalArgumentException("Product is already inactive.");
         }
@@ -125,7 +119,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponseDto activateProduct(Long productId) {
-        Product existingProduct=getProduct(productId);
+        Product existingProduct=productMapper.getProduct(productId);
         if(!existingProduct.getCategory().getActive().equals(true)){
             throw new IllegalArgumentException("Product cannot be activated because it's category is inactive.");
         }
