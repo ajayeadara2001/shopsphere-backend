@@ -8,6 +8,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -33,6 +35,8 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id",nullable = false)
     private Category category;
+    @OneToMany(mappedBy = "product",orphanRemoval = true)
+    private List<Review> reviews=new ArrayList<>();
 
     @PrePersist
     public void onCreate(){

@@ -105,6 +105,7 @@ public class PaymentServiceImpl implements PaymentService {
         return paymentResponseDtoList;
 
     }
+
     @Override
     @Transactional(readOnly = true)
     public List<PaymentResponseDto> getUserAllPayments() {

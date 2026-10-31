@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -26,7 +28,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
     private LocalDateTime createdAt;
-
+    @OneToMany(mappedBy = "user")
+    private List<Review> reviewList=new ArrayList<>();
 
     @PrePersist
     public void onCreate(){

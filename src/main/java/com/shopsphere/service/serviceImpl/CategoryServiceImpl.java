@@ -3,7 +3,6 @@ package com.shopsphere.service.serviceImpl;
 import com.shopsphere.dto.CategoryRequestDto;
 import com.shopsphere.dto.CategoryResponseDto;
 import com.shopsphere.entity.Category;
-import com.shopsphere.exception.CategoryNotFoundException;
 import com.shopsphere.mapper.CategoryMapper;
 import com.shopsphere.repository.CategoryRepository;
 import com.shopsphere.service.CategoryService;
@@ -33,12 +32,13 @@ public class CategoryServiceImpl implements CategoryService {
             category.setActive(true);
             category.setDescription(categoryRequestDto.getDescription());
             return categoryMapper.mapCategoryToResponse(categoryRepository.save(category));
+        }else {
+            Category newCategory = new Category();
+            newCategory.setCategoryName(categoryRequestDto.getCategoryName());
+            newCategory.setDescription(categoryRequestDto.getDescription());
+            newCategory.setActive(true);
+            return categoryMapper.mapCategoryToResponse(categoryRepository.save(newCategory));
         }
-        Category newCategory=new Category();
-        newCategory.setCategoryName(categoryRequestDto.getCategoryName());
-        newCategory.setDescription(categoryRequestDto.getDescription());
-        newCategory.setActive(true);
-        return categoryMapper.mapCategoryToResponse(categoryRepository.save(newCategory));
     }
 
     @Override

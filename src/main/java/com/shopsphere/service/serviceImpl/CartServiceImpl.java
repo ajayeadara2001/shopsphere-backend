@@ -28,8 +28,6 @@ import java.util.Optional;
 public class CartServiceImpl implements CartService {
     private final CartRepository cartRepository;
     private final CartItemsRepository cartItemsRepository;
-    private final ProductRepository productRepository;
-    private final UserRepository userRepository;
     private final CartMapper cartMapper;
     private final UserMapper userMapper;
     private final ProductMapper productMapper;

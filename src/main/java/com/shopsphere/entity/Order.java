@@ -35,5 +35,6 @@ public class Order {
     private User user;
     @OneToMany(mappedBy = "order",cascade = CascadeType.ALL,orphanRemoval = true)
     private List<OrderItems> orderItemsList=new ArrayList<>();
-
+    private String couponCode;
+    private BigDecimal discountAmount;
 }

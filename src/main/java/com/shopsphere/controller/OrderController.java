@@ -18,8 +18,11 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderResponseDto> placeOrder(){
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.placeOrder());
+    public ResponseEntity<OrderResponseDto> placeOrder(
+            @RequestParam(required = false) String couponCode){
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(orderService.placeOrder(couponCode));
     }
 
     @GetMapping("/me")

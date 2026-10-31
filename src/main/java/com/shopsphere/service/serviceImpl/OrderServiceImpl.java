@@ -5,9 +5,7 @@ import com.shopsphere.constant.Role;
 import com.shopsphere.dto.OrderResponseDto;
 import com.shopsphere.dto.OrderStatusUpdateRequestDto;
 import com.shopsphere.entity.*;
-import com.shopsphere.exception.AccessDeniedException;
-import com.shopsphere.exception.OrderNotFoundException;
-import com.shopsphere.exception.OrderStatusException;
+import com.shopsphere.exception.*;
 import com.shopsphere.mapper.CartMapper;
 import com.shopsphere.mapper.OrderMapper;
 import com.shopsphere.mapper.UserMapper;
@@ -17,6 +15,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
+    private final CouponRepository couponRepository;
     private final UserMapper userMapper;
     private final CartMapper cartMapper;
     private final OrderMapper orderMapper;
@@ -67,13 +69,39 @@ public class OrderServiceImpl implements OrderService {
     }
     @Override
     @Transactional
-    public OrderResponseDto placeOrder() {
+    public OrderResponseDto placeOrder(String couponCode) {
         User existingUser=userMapper.getCurrentUser();
         Cart userCart=cartMapper.getCartForUser(existingUser);
+        BigDecimal cartTotal=userCart.getTotalAmount();
+        BigDecimal finalAmount=cartTotal;
+        BigDecimal discount=BigDecimal.ZERO;
+        if(couponCode!=null && !couponCode.isBlank()){
+            Coupon coupon=couponRepository.findByCouponCode(couponCode)
+                    .orElseThrow(()-> new CouponNotFoundException("Invalid coupon code"));
+            if(!coupon.getActiveStatus()){
+                throw new CouponException("Coupon is inactive");
+            }
+            if(coupon.getExpiryDate().isBefore(LocalDateTime.now())){
+                throw new CouponException("Coupon is Expired");
+            }
+            if(cartTotal.compareTo(coupon.getMinimumOrderAmount())<0){
+                throw new CouponException("Minimum order amount is "+coupon.getMinimumOrderAmount());
+            }
+            discount=cartTotal.multiply(coupon.getDiscountPercentage())
+                    .divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
+            finalAmount=cartTotal.subtract(discount);
+            int currentUsage=coupon.getUsageCount()==null
+                    ? 0:coupon.getUsageCount();
+            coupon.setUsageCount(currentUsage);
+            couponRepository.save(coupon);
+        }
         Order newOrder=new Order();
         newOrder.setUser(existingUser);
         newOrder.setOrderStatus(OrderStatus.PLACED);
         newOrder.setOrderNumber(UUID.randomUUID().toString());
+        newOrder.setCouponCode(couponCode);
+        newOrder.setDiscountAmount(discount);
+        newOrder.setTotalOrderAmount(finalAmount);
         newOrder.setTotalOrderAmount(userCart.getTotalAmount());
         for(CartItems cartItems:userCart.getCartItemsList()){
             OrderItems orderItems=new OrderItems();

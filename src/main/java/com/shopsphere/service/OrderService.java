@@ -6,7 +6,7 @@ import com.shopsphere.dto.OrderStatusUpdateRequestDto;
 import java.util.List;
 
 public interface OrderService {
-    OrderResponseDto placeOrder();
+    OrderResponseDto placeOrder(String couponCode);
     List<OrderResponseDto> getUserOrders();
     OrderResponseDto getOrderById(Long orderId);
     List<OrderResponseDto> getAllOrders();

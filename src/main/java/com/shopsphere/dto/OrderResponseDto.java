@@ -2,10 +2,7 @@ package com.shopsphere.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.shopsphere.constant.OrderStatus;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

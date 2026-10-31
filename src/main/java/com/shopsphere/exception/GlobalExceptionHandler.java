@@ -152,4 +152,76 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         ),HttpStatus.CONFLICT);
     }
+
+    @ExceptionHandler(WishlistException.class)
+    public ResponseEntity<ErrorResponseDto> wishlistException(WishlistException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage()
+        ),HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(AddressException.class)
+    public ResponseEntity<ErrorResponseDto> addressException(AddressException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CouponNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> couponNotFoundException(CouponNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CouponException.class)
+    public ResponseEntity<ErrorResponseDto> couponException(CouponException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage()
+        ),HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RefundException.class)
+    public ResponseEntity<ErrorResponseDto> refundException(RefundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage()
+        ),HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RefundNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> refundNotException(RefundNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(ReviewNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> reviewNotException(ReviewNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(ReviewException.class)
+    public ResponseEntity<ErrorResponseDto> refundException(ReviewException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage()
+        ),HttpStatus.BAD_REQUEST);
+    }
 }
