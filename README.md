@@ -1,18 +1,36 @@
 # ShopSphere Backend
 
-REST API for an e-commerce platform built with Spring Boot. It provides JWT-based
-authentication, role-based access control (Customer / Admin), and management of
-users, categories, products, carts, orders, payments, addresses, wishlists,
-reviews, coupons and refunds.
+![Java](https://img.shields.io/badge/Java-21-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-database-336791)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+REST API for an e-commerce platform built with Spring Boot. It provides JWT-based authentication, role-based access control (Customer / Admin), and management of users, categories, products, carts, orders, payments, addresses, wishlists, reviews, coupons and refunds.
+
+## Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [API Overview](#api-overview)
+- [Error Format](#error-format)
+- [Testing](#testing)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Author](#author)
 
 ## Tech Stack
 
-- Java 21
-- Spring Boot 4.1.1 (Web MVC, Data JPA, Security, Validation)
-- PostgreSQL
-- JWT (JJWT 0.12.6)
-- Maven
-- Lombok
+| Area | Technology |
+|---|---|
+| Language | Java 21 |
+| Framework | Spring Boot 4.1.1 (Web MVC, Data JPA, Security, Validation) |
+| Database | PostgreSQL |
+| Authentication | JWT (JJWT 0.12.6), BCrypt password hashing |
+| Build tool | Maven (wrapper included) |
+| Utilities | Lombok |
+| Testing | JUnit, Mockito (via Spring Boot Test) |
 
 ## Features
 
@@ -21,17 +39,17 @@ reviews, coupons and refunds.
 - Role-based authorization (`CUSTOMER`, `ADMIN`) using `@PreAuthorize`
 - Partial updates with Bean Validation groups
 - Centralized exception handling with a consistent JSON error format
-- Admin-only category and product management
+- Admin-only category and product management with soft delete (deactivate / reactivate)
 - Shopping cart with stock validation
 - Order placement from the cart, order history and cancellation
-- Payment flow (simulated) with admin payment status updates
+- Simulated payment flow with admin payment status updates
 - Admin order management and status updates
-- Address book with default address handling
+- Address book with automatic default address handling
 - Wishlist with duplicate protection
 - Product reviews and ratings
 - Discount coupons with admin management
-- Refund requests with admin approval workflow
-- Default admin seeded on first startup
+- Refund requests with an admin approval workflow
+- Default admin account seeded on first startup
 
 ## Getting Started
 
@@ -43,65 +61,95 @@ reviews, coupons and refunds.
 
 ### Setup
 
-1. Clone the repository
+1. **Clone the repository**
 
    ```bash
    git clone https://github.com/ajayeadara2001/shopsphere-backend.git
    cd shopsphere-backend
    ```
 
-2. Create the database
+2. **Create the database**
 
    ```sql
    CREATE DATABASE shopsphere_db;
    ```
 
-3. Set the environment variables
+3. **Set the environment variables**
 
    | Variable | Description |
-      |---|---|
+   |---|---|
    | `DB_PASSWORD` | PostgreSQL password for user `postgres` |
    | `JWT_SECRET` | Base64-encoded secret of at least 32 bytes |
 
-   Generate a JWT secret with:
+   Generate a JWT secret:
+
+   **macOS / Linux**
 
    ```bash
    openssl rand -base64 32
    ```
 
-   Set them in your terminal before running the app:
+   **Windows PowerShell**
+
+   ```powershell
+   $b = New-Object byte[] 32
+   [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
+   [Convert]::ToBase64String($b)
+   ```
+
+   Set the variables in your terminal before running the app:
+
+   **macOS / Linux**
 
    ```bash
-   # macOS / Linux
    export DB_PASSWORD=your_password
    export JWT_SECRET=your_base64_secret
    ```
 
+   **Windows PowerShell**
+
    ```powershell
-   # Windows PowerShell
    $env:DB_PASSWORD="your_password"
    $env:JWT_SECRET="your_base64_secret"
    ```
 
    Replace the placeholder values with your own. Never commit real credentials.
 
-4. Run the application
+4. **Run the application**
+
+   **macOS / Linux**
 
    ```bash
    ./mvnw spring-boot:run
    ```
 
-   On Windows use `mvnw.cmd spring-boot:run`. The API starts on `http://localhost:8080`.
+   **Windows PowerShell**
+
+   ```powershell
+   .\mvnw.cmd spring-boot:run
+   ```
+
+   The API starts on `http://localhost:8080`.
 
 ### Default admin
 
-On first startup an admin account is created. Override the defaults with the
-`admin.email` and `admin.password` properties. Change the password immediately
-outside local development.
+On first startup an admin account is created. Override the defaults with the `admin.email` and `admin.password` properties. Change the password immediately outside local development.
 
 ## API Overview
 
-Send the token as `Authorization: Bearer <token>`.
+All endpoints except registration and login require a token:
+
+```
+Authorization: Bearer <token>
+```
+
+Base path: `/api/v1`
+
+### Quick start
+
+1. Register a customer: `POST /api/v1/auth/register`
+2. Log in and copy the token: `POST /api/v1/auth/login`
+3. Send the token in the `Authorization` header on every other request.
 
 ### Authentication
 
@@ -163,8 +211,7 @@ Send the token as `Authorization: Bearer <token>`.
 | PUT | `/api/v1/address/{addressId}` | Customer | Update an address (partial) |
 | DELETE | `/api/v1/address/{addressId}` | Customer | Delete an address |
 
-The first address becomes the default automatically. Marking another address as
-default clears the previous one.
+The first address becomes the default automatically. Marking another address as default clears the previous one.
 
 ### Wishlist
 
@@ -218,6 +265,8 @@ default clears the previous one.
 | PUT | `/api/v1/admin/payments/{paymentId}/failed` | Admin | Mark a payment failed |
 | GET | `/api/v1/admin/payments/payment-history` | Admin | List all payments |
 
+Payments are simulated. No real payment gateway is integrated.
+
 ### Refunds
 
 | Method | Endpoint | Access | Description |
@@ -228,20 +277,76 @@ default clears the previous one.
 | GET | `/api/v1/admin/refund/all` | Admin | List all refund requests |
 | PUT | `/api/v1/admin/refund/{refundId}/status` | Admin | Approve or reject a refund |
 
-### Error format
+## Error Format
+
+All errors return a consistent JSON body:
 
 ```json
 {
   "timeStamp": "2026-10-31 15:55:06",
   "status": 400,
   "message": "Validation failed",
-  "errors": { "email": "Please provide a valid email address" }
+  "errors": {
+    "email": "Please provide a valid email address"
+  }
 }
 ```
 
+## Testing
+
+ShopSphere includes automated tests for the JWT authentication components and application context startup.
+
+### Test coverage
+
+- **`JwtServiceImplTest`**
+   - JWT generation and email extraction
+   - Token validation for the correct user
+   - Rejection of a token belonging to a different user
+   - Expired, malformed and tampered token handling
+   - Null user-details handling
+
+- **`JWTAuthenticationFilterTest`**
+   - Missing and non-Bearer Authorization headers
+   - Authentication using a valid JWT
+   - Expired and malformed token handling
+   - Rejection when the token does not match the user
+   - Existing authentication handling
+   - Null extracted email and user lookup failure
+
+- **`JWTAuthenticationEntryPointTest`**
+   - JSON response for HTTP 401 Unauthorized
+   - Exception message and request path in the response
+
+- **`ShopsphereBackendApplicationTests`**
+   - Spring application context startup
+
+### Run tests
+
+**Windows PowerShell**
+
+```powershell
+.\mvnw.cmd clean verify
+```
+
+**macOS / Linux**
+
+```bash
+./mvnw clean verify
+```
+
+### Latest test result
+
+| Metric | Result |
+|---|---:|
+| Tests run | 19 |
+| Failures | 0 |
+| Errors | 0 |
+| Skipped | 0 |
+| Build | SUCCESS |
+
 ## Project Structure
 
-```
+```text
 com.shopsphere
 ├── config        # Security config, data seeding
 ├── constant      # Enums (roles, statuses, address types)
@@ -255,10 +360,24 @@ com.shopsphere
 └── service       # Business logic (interfaces and serviceImpl)
 ```
 
+## Roadmap
+
+Planned improvements:
+
+- [ ] Unit tests for the service layer (cart, orders, coupons, refunds)
+- [ ] Integration tests with Testcontainers (PostgreSQL)
+- [ ] OpenAPI / Swagger documentation
+- [ ] Dockerfile and `docker-compose.yml` for one-command setup
+- [ ] CI with GitHub Actions (`./mvnw clean verify`)
+- [ ] Concurrency-safe stock deduction and idempotent payment handling
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE.md](LICENSE.md) file for details.
 
 ## Author
 
-**Ajay Shankar Ganesh Eadara**: [LinkedIn](https://linkedin.com/in/ajay-shankar-ganesh-eadara-69821241a/) · [GitHub](https://github.com/ajayeadara2001)
+**Ajay Shankar Ganesh Eadara**
+
+- [LinkedIn](https://linkedin.com/in/ajay-shankar-ganesh-eadara-69821241a/)
+- [GitHub](https://github.com/ajayeadara2001)
