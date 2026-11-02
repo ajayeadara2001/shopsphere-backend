@@ -18,6 +18,8 @@ public class Coupon {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "coupon_id")
     private Long couponId;
+    @Version
+    private Long version;
     @Column(nullable = false,unique = true)
     private String couponCode;
     private BigDecimal discountPercentage;

@@ -1,5 +1,6 @@
 package com.shopsphere.repository;
 
+import com.shopsphere.constant.OrderStatus;
 import com.shopsphere.entity.Order;
 import com.shopsphere.entity.Product;
 import com.shopsphere.entity.User;
@@ -9,5 +10,6 @@ import java.util.List;
 
 public interface OrderRepository extends JpaRepository<Order,Long> {
     List<Order> findByUser(User user);
-    boolean existsByUserAndOrderItemsListProduct(User user, Product product);
+    boolean existsByUserAndOrderStatusAndOrderItemsListProduct
+            (User user, OrderStatus orderStatus, Product product);
 }

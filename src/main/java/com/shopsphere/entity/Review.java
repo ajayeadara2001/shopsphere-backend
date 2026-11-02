@@ -26,7 +26,6 @@ public class Review {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id",nullable = false)
     private Product product;
-    @JsonFormat(pattern = "yyyy-MM-dd HH-mm-ss")
     private LocalDateTime reviewAt;
 
     @PrePersist

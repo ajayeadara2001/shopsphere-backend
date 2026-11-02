@@ -22,6 +22,8 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id")
     private Long productId;
+    @Version
+    private Long version;
     private String productName;
     @Column(columnDefinition = "TEXT")
     private String description;

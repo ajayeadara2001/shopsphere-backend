@@ -13,7 +13,7 @@ public class ProductMapper {
     private final ProductRepository productRepository;
     public ProductResponseDto mapProductToResponse(Product product){
         return new ProductResponseDto(
-        product.getProductId(),
+                product.getProductId(),
                 product.getProductName(),
                 product.getDescription(),
                 product.getPrice(),
@@ -27,6 +27,12 @@ public class ProductMapper {
                 product.getCategory().getCategoryName()
         );
     }
+    public Product getProductIncludingInactive(Long productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(
+                        "Product not found for Id : " + productId));
+    }
+
     public Product getProduct(Long productId) {
         return productRepository.findByProductIdAndActiveTrue(productId)
                 .orElseThrow(() -> new ProductNotFoundException(

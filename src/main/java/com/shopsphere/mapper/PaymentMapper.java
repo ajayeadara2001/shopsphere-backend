@@ -26,4 +26,11 @@ public class PaymentMapper {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(()->new PaymentNotFoundException("Payment not found for Id: "+paymentId));
     }
+
+    public Payment getPaymentWithLock(Long paymentId) {
+        return paymentRepository.findWithLockByPaymentId(paymentId)
+                .orElseThrow(() ->
+                        new PaymentNotFoundException(
+                                "Payment not found for Id: " + paymentId));
+    }
 }

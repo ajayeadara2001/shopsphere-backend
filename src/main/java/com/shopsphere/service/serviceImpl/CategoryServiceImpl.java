@@ -23,7 +23,8 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryResponseDto createCategory(CategoryRequestDto categoryRequestDto) {
-        Optional<Category> existingCategory=categoryRepository.findByCategoryName(categoryRequestDto.getCategoryName());
+        Optional<Category> existingCategory=categoryRepository
+                .findByCategoryName(categoryRequestDto.getCategoryName());
         if(existingCategory.isPresent()){
             Category category=existingCategory.get();
             if(category.getActive()) {
@@ -74,8 +75,12 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public CategoryResponseDto updateCategory(Long categoryId, CategoryRequestDto categoryRequestDto) {
         Category existingCategory=categoryMapper.getCategory(categoryId);
-        existingCategory.setCategoryName(categoryRequestDto.getCategoryName());
-        existingCategory.setDescription(categoryRequestDto.getDescription());
+        if(categoryRequestDto.getCategoryName()!=null){
+            existingCategory.setCategoryName(categoryRequestDto.getCategoryName());
+        }
+        if(categoryRequestDto.getDescription()!=null) {
+            existingCategory.setDescription(categoryRequestDto.getDescription());
+        }
         return categoryMapper.mapCategoryToResponse(categoryRepository.save(existingCategory));
     }
 

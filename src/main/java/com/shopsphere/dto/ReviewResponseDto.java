@@ -18,6 +18,6 @@ public class ReviewResponseDto {
     private String userName;
     private Long productId;
     private String productName;
-    @JsonFormat(pattern = "yyyy-MM-dd HH-mm-ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime reviewAt;
 }

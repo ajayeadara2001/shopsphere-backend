@@ -21,10 +21,11 @@ public class Refund {
     @Column(name = "refund_id")
     private Long refundId;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id",unique = true)
+    @JoinColumn(name = "payment_id", nullable = false)
     private Payment payment;
     private BigDecimal refundAmount;
     private String refundReason;
+    @Enumerated(EnumType.STRING)
     private RefundStatus refundStatus;
     @JsonFormat(pattern = "yyyy-MM-dd HH-mm-ss")
     private LocalDateTime createdAt;

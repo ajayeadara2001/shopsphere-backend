@@ -12,7 +12,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReviewRequestDto {
-    @NotNull(message = "Product Id cannot be blank.")
+    @NotNull(message = "Product Id is required.")
+    @Positive(message = "Product Id must be positive.")
     private Long productId;
     @NotBlank(groups = OnCreate.class, message = "Review comments cannot be blank")
     @Size(min = 5, max = 1000, message = "Review comments must be between 5 and 1000 characters")

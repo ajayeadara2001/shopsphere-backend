@@ -4,15 +4,19 @@ import com.shopsphere.dto.CartItemsRequestDto;
 import com.shopsphere.dto.CartResponseDto;
 import com.shopsphere.service.CartService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.repository.query.Param;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/cart")
+@Validated
 public class CartController {
     private final CartService cartService;
 
@@ -30,7 +34,7 @@ public class CartController {
 
     @PutMapping("/items/{productId}")
     public ResponseEntity<CartResponseDto> updateCart(
-            @PathVariable Long productId, @RequestParam Integer quantity){
+            @PathVariable Long productId, @RequestParam @Min(1) @Max(100) Integer quantity){
         return ResponseEntity.ok(cartService.updateCartItems(productId,quantity));
     }
 
@@ -44,6 +48,4 @@ public class CartController {
         cartService.removeCartItem(productId);
         return ResponseEntity.ok("Items removed from cart successfully");
     }
-
-
 }

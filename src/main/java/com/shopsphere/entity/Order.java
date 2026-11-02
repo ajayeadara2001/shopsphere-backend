@@ -1,11 +1,9 @@
 package com.shopsphere.entity;
 
-
 import com.shopsphere.constant.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,6 +22,7 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "order_id")
     private Long orderId;
+    @Column(nullable = false, unique = true, updatable = false)
     private String orderNumber;
     private BigDecimal totalOrderAmount;
     @CreationTimestamp
@@ -37,4 +36,5 @@ public class Order {
     private List<OrderItems> orderItemsList=new ArrayList<>();
     private String couponCode;
     private BigDecimal discountAmount;
+
 }

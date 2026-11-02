@@ -15,7 +15,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "cart_items")
+@Table(
+        name = "cart_items",
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"cart_id", "product_id"}
+        )
+)
 public class CartItems {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

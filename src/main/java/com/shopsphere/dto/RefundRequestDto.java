@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class RefundRequestDto {
     @NotNull(message = "Payment id is required")
+    @Positive(message = "Payment Id must be positive.")
     private Long paymentId;
     @NotNull(message = "Refund amount is required")
     @DecimalMin(value = "0.01", message = "Refund amount must be greater than 0")

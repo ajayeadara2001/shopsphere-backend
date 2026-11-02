@@ -11,19 +11,20 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class RefundMapper {
     private final RefundRepository refundRepository;
-    public RefundResponseDto mapRefundToResponse(Refund refund){
+    public RefundResponseDto mapRefundToResponse(Refund refund) {
         return new RefundResponseDto(
                 refund.getRefundId(),
-                refund.getPayment(),
+                refund.getPayment().getPaymentId(),
+                refund.getPayment().getPaymentNumber(),
                 refund.getRefundAmount(),
                 refund.getRefundReason(),
                 refund.getRefundStatus(),
                 refund.getCreatedAt(),
-                refund.getUpdatedAt()
-        );
+                refund.getUpdatedAt());
     }
-    public Refund getRefundById(Long refundId){
+    public Refund getRefundById(Long refundId) {
         return refundRepository.findById(refundId)
-                .orElseThrow(()-> new RefundNotFoundException("Refund not found for Id: "+refundId));
+                .orElseThrow(() -> new RefundNotFoundException
+                        ("Refund not found for Id: " + refundId));
     }
 }

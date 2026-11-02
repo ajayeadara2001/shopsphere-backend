@@ -3,6 +3,7 @@ package com.shopsphere.controller;
 import com.shopsphere.dto.LoginRequestDto;
 import com.shopsphere.dto.LoginResponseDto;
 import com.shopsphere.service.LoginService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +19,7 @@ public class LoginController {
 
     @PostMapping("/login/me")
     public ResponseEntity<LoginResponseDto> userLogin(
-            @RequestBody LoginRequestDto loginRequestDto){
+            @Valid @RequestBody LoginRequestDto loginRequestDto){
         return ResponseEntity.ok(loginService.login(loginRequestDto));
     }
 }

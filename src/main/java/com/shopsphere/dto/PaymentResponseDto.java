@@ -19,7 +19,7 @@ public class PaymentResponseDto {
     private BigDecimal amount;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
-    @JsonFormat(pattern = "yyyy-MM-ss HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime paidAt;
     private Long orderId;
 }

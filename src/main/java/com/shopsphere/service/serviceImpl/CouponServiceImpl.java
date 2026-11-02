@@ -26,25 +26,28 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class CouponServiceImpl implements CouponService {
     private final CouponRepository couponRepository;
     private final CartRepository cartRepository;
-    private final ProductRepository productRepository;
     private final CouponMapper couponMapper;
     private final UserMapper userMapper;
-    private final CartMapper cartMapper;
-    private final ProductMapper productMapper;
+
+    private String normalizeCouponCode(String couponCode) {
+        return couponCode.trim().toUpperCase(Locale.ROOT);
+    }
     @Override
     @Transactional
     public CouponResponseDto createCoupon(CouponRequestDto couponRequestDto) {
-        if(couponRepository.existsByCouponCode(couponRequestDto.getCouponCode())){
-            throw new CouponException("Coupon code Already exists");
+        String couponCode = normalizeCouponCode(couponRequestDto.getCouponCode());
+        if (couponRepository.existsByCouponCode(couponCode)) {
+            throw new CouponException("Coupon code already exists.");
         }
         Coupon newCoupon=new Coupon();
-        newCoupon.setCouponCode(couponRequestDto.getCouponCode());
+        newCoupon.setCouponCode(couponCode);
         newCoupon.setDiscountPercentage(couponRequestDto.getDiscountPercentage());
         newCoupon.setMinimumOrderAmount(couponRequestDto.getMinimumOrderAmount());
         newCoupon.setExpiryDate(couponRequestDto.getExpiryDate());
@@ -116,14 +119,18 @@ public class CouponServiceImpl implements CouponService {
     @Override
     @Transactional
     public ApplyCouponResponseDto applyCoupon(ApplyCouponRequestDto applyCouponRequestDto) {
-        String couponCode= applyCouponRequestDto.getCouponCode();
+        String couponCode = normalizeCouponCode(applyCouponRequestDto.getCouponCode());
         Coupon coupon=couponRepository.findByCouponCode(couponCode)
                 .orElseThrow(()-> new CouponNotFoundException("Invalid Coupon code"));
         if(coupon.getUsageLimit()!=null
                 && coupon.getUsageCount() >= coupon.getUsageLimit()){
             throw new CouponException("Coupon usage limit exceeded.");
         }
-        if(!coupon.getActiveStatus()){
+        if(coupon.getExpiryDate() == null
+                || !coupon.getExpiryDate().isAfter(java.time.LocalDateTime.now())){
+            throw new CouponException("Coupon is expired.");
+        }
+        if(!Boolean.TRUE.equals(coupon.getActiveStatus())){
             throw new CouponException("Coupon is inactive.");
         }
         User currentUser=userMapper.getCurrentUser();

@@ -1,5 +1,6 @@
 package com.shopsphere.service.serviceImpl;
 
+import com.shopsphere.constant.OrderStatus;
 import com.shopsphere.constant.Role;
 import com.shopsphere.dto.ReviewRequestDto;
 import com.shopsphere.dto.ReviewResponseDto;
@@ -32,13 +33,18 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public ReviewResponseDto addReview(Long productId, ReviewRequestDto reviewRequestDto) {
+        if (reviewRequestDto.getProductId() != null
+                && !productId.equals(reviewRequestDto.getProductId())) {
+            throw new ReviewException("Product id in the request must match the URL.");
+        }
         User currentUser=userMapper.getCurrentUser();
         Product product=productMapper.getProduct(productId);
         if(reviewRepository.findByUserAndProduct(currentUser,product).isPresent()){
             throw new ReviewException("You have already reviewed this product.");
         }
         boolean hasPurchased=orderRepository
-                .existsByUserAndOrderItemsListProduct(currentUser,product);
+                .existsByUserAndOrderStatusAndOrderItemsListProduct
+                        (currentUser, OrderStatus.DELIVERED, product);
         if(!hasPurchased){
             throw new ReviewException("You can only review the products you have purchased.");
         }
@@ -82,7 +88,6 @@ public class ReviewServiceImpl implements ReviewService {
         }
         review.setRating(reviewRequestDto.getRating());
         review.setReviewComments(reviewRequestDto.getReviewComments());
-        review.setUser(currentUser);
         review.setReviewAt(LocalDateTime.now());
         return reviewMapper.mapReviewToResponse(reviewRepository.save(review));
     }

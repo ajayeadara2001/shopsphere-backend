@@ -10,6 +10,7 @@ import lombok.*;
 @Builder
 public class CartItemsRequestDto {
     @NotNull(message = "Product id is required")
+    @Positive(message = "Product id must be positive")
     private Long productId;
     @NotNull(message = "Quantity is required")
     @Min(value = 1, message = "Quantity must be at least 1")

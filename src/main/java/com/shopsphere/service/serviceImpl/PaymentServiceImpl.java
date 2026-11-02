@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +40,7 @@ public class PaymentServiceImpl implements PaymentService {
         User existingUser=userMapper.getCurrentUser();
         Order order=orderMapper.getOrder(orderId);
         if(order.getOrderStatus()!= OrderStatus.PLACED){
-            throw new PaymentStatusException("Payment can only be maid for Placed order.");
+            throw new PaymentStatusException("Payment can only be made for Placed order.");
         }
         if(!order.getUser().getUserId().equals(existingUser.getUserId())){
             throw new AccessDeniedException("You are not authorized to make payment for this order.");
@@ -62,7 +63,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setPaymentStatus(PaymentStatus.PENDING);
         payment.setPaymentMethod(paymentRequestDto.getPaymentMethod());
         payment.setPaidAt(null);
-        payment.setPaymentNumber("PAY_"+System.currentTimeMillis());
+        payment.setPaymentNumber("PAY_" + UUID.randomUUID());
         return paymentMapper.mapPaymentToResponse(paymentRepository.save(payment));
     }
 
@@ -74,9 +75,14 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentStatusException(
                     "Payment is already in "+payment.getPaymentStatus()+ " and cannot be updated");
         }
+        Order order = payment.getOrder();
+        if (order.getOrderStatus() != OrderStatus.PLACED) {
+            throw new PaymentStatusException(
+                    "Payment can only succeed for an order in PLACED status."
+            );
+        }
         payment.setPaymentStatus(PaymentStatus.SUCCESS);
         payment.setPaidAt(LocalDateTime.now());
-        Order order=payment.getOrder();
         order.setOrderStatus(OrderStatus.CONFIRMED);
         orderRepository.save(order);
         return paymentMapper.mapPaymentToResponse(paymentRepository.save(payment));

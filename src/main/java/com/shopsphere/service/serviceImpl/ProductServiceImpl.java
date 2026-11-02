@@ -26,8 +26,6 @@ public class ProductServiceImpl implements ProductService {
     private final ProductMapper productMapper;
     private final CategoryMapper categoryMapper;
 
-
-
     @Override
     @Transactional
     public ProductResponseDto createProduct(ProductRequestDto productRequestDto) {
@@ -78,37 +76,37 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponseDto updateProduct(Long productId, ProductRequestDto productRequestDto) {
-        Category category=categoryMapper.getCategory(productRequestDto.getCategoryId());
-        if(!category.getActive().equals(true)){
-            throw new IllegalArgumentException("Product cannot be assigned under an inactive category.");
+    public ProductResponseDto updateProduct(Long productId, ProductRequestDto request) {
+        Product product = productMapper.getProductIncludingInactive(productId);
+        if (request.getCategoryId() != null) {
+            Category category = categoryMapper.getCategory(request.getCategoryId());
+            if (!Boolean.TRUE.equals(category.getActive())) throw new IllegalArgumentException("Product cannot be assigned under an inactive category.");
+            product.setCategory(category);
         }
-        Product existingProduct=productMapper.getProduct(productId);
-        if(productRequestDto.getProductName()!=null){
-            existingProduct.setProductName(productRequestDto.getProductName());
+        if (request.getProductName() != null){
+            product.setProductName(request.getProductName());
         }
-        if(productRequestDto.getDescription()!=null) {
-            existingProduct.setDescription(productRequestDto.getDescription());
+        if (request.getDescription() != null){
+            product.setDescription(request.getDescription());
         }
-        if(productRequestDto.getPrice()!=null) {
-            existingProduct.setPrice(productRequestDto.getPrice());
+        if (request.getPrice() != null){
+            product.setPrice(request.getPrice());
         }
-        if(productRequestDto.getStockQuantity()!=null) {
-            existingProduct.setStockQuantity(productRequestDto.getStockQuantity());
+        if (request.getStockQuantity() != null){
+            product.setStockQuantity(request.getStockQuantity());
         }
-        if(productRequestDto.getBrand()!=null) {
-            existingProduct.setBrand(productRequestDto.getBrand());
+        if (request.getBrand() != null){
+            product.setBrand(request.getBrand());
         }
-        if(productRequestDto.getImageUrl()!=null) {
-            existingProduct.setImageUrl(productRequestDto.getImageUrl());
+        if (request.getImageUrl() != null){
+            product.setImageUrl(request.getImageUrl());
         }
-        return productMapper.mapProductToResponse(productRepository.save(existingProduct));
+        return productMapper.mapProductToResponse(productRepository.save(product));
     }
-
     @Override
     @Transactional
     public void deleteProduct(Long productId) {
-        Product existingProduct=productMapper.getProduct(productId);
+        Product existingProduct=productMapper.getProductIncludingInactive(productId);
         if(!existingProduct.getActive().equals(true)){
             throw new IllegalArgumentException("Product is already inactive.");
         }
@@ -119,7 +117,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponseDto activateProduct(Long productId) {
-        Product existingProduct=productMapper.getProduct(productId);
+        Product existingProduct=productMapper.getProductIncludingInactive(productId);
         if(!existingProduct.getCategory().getActive().equals(true)){
             throw new IllegalArgumentException("Product cannot be activated because it's category is inactive.");
         }

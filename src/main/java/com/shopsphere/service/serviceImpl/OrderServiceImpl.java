@@ -20,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -33,166 +34,161 @@ public class OrderServiceImpl implements OrderService {
     private final CartMapper cartMapper;
     private final OrderMapper orderMapper;
 
-    private void validateOrderStatus(OrderStatus currentStatus, OrderStatus newStatus){
-        switch (currentStatus){
-            case PLACED:
-                if(newStatus!=OrderStatus.CONFIRMED
-                        && newStatus!=OrderStatus.CANCELLED){
-                    throw new OrderStatusException(
-                            "Cannot change order status from"+currentStatus+" to "+newStatus);
-                }
-                break;
-            case CONFIRMED:
-                if(newStatus!=OrderStatus.SHIPPED
-                        && newStatus!=OrderStatus.CANCELLED){
-                    throw new OrderStatusException(
-                            "Cannot change order status from"+currentStatus+" to "+newStatus);
-                }
-                break;
-            case SHIPPED:
-                if(newStatus!=OrderStatus.OUT_FOR_DELIVERY){
-                    throw new OrderStatusException(
-                            "Cannot change order status from"+currentStatus+" to "+newStatus);
-                }
-                break;
-            case OUT_FOR_DELIVERY:
-                if(newStatus!=OrderStatus.DELIVERED){
-                    throw new OrderStatusException(
-                            "Cannot change order status from"+currentStatus+" to "+newStatus);
-                }
-                break;
-            case DELIVERED:
-            case CANCELLED:
-                throw new OrderStatusException(
-                        "Order is already "+ currentStatus+".");
+    private void requireNext(OrderStatus proposed, OrderStatus... allowed) {
+        for (OrderStatus status : allowed) {
+            if (status == proposed) return;
+        }
+        throw new OrderStatusException("Invalid order status transition.");
+    }
+
+    private void restoreStock(Order order) {
+        for (OrderItems item : order.getOrderItemsList()) {
+            Product product = item.getProduct();
+            product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
+            productRepository.save(product);
         }
     }
+    private void validateOrderStatus(OrderStatus currentStatus, OrderStatus newStatus) {
+        switch (currentStatus) {
+            case PLACED -> requireNext(newStatus, OrderStatus.CONFIRMED, OrderStatus.CANCELLED);
+            case CONFIRMED -> requireNext(newStatus, OrderStatus.SHIPPED, OrderStatus.CANCELLED);
+            case SHIPPED -> requireNext(newStatus, OrderStatus.OUT_FOR_DELIVERY);
+            case OUT_FOR_DELIVERY -> requireNext(newStatus, OrderStatus.DELIVERED);
+            case DELIVERED, CANCELLED -> throw new OrderStatusException("Order is already " + currentStatus + ".");
+        }
+    }
+
+    private void validateCoupon(Coupon coupon, BigDecimal cartTotal) {
+        if (!Boolean.TRUE.equals(coupon.getActiveStatus())) {
+            throw new CouponException("Coupon is inactive");
+        }
+        if (coupon.getExpiryDate() == null
+                || !coupon.getExpiryDate().isAfter(LocalDateTime.now())){
+            throw new CouponException("Coupon is expired");
+        }
+        if (coupon.getUsageLimit() != null
+                && coupon.getUsageCount() >= coupon.getUsageLimit()){
+            throw new CouponException("Coupon usage limit exceeded");
+        }
+        if (cartTotal.compareTo(coupon.getMinimumOrderAmount()) < 0){
+            throw new CouponException("Minimum order amount is " + coupon.getMinimumOrderAmount());
+        }
+    }
+
     @Override
     @Transactional
     public OrderResponseDto placeOrder(String couponCode) {
-        User existingUser=userMapper.getCurrentUser();
-        Cart userCart=cartMapper.getCartForUser(existingUser);
-        BigDecimal cartTotal=userCart.getTotalAmount();
-        BigDecimal finalAmount=cartTotal;
-        BigDecimal discount=BigDecimal.ZERO;
-        if(couponCode!=null && !couponCode.isBlank()){
-            Coupon coupon=couponRepository.findByCouponCode(couponCode)
-                    .orElseThrow(()-> new CouponNotFoundException("Invalid coupon code"));
-            if(!coupon.getActiveStatus()){
-                throw new CouponException("Coupon is inactive");
-            }
-            if(coupon.getExpiryDate().isBefore(LocalDateTime.now())){
-                throw new CouponException("Coupon is Expired");
-            }
-            if(cartTotal.compareTo(coupon.getMinimumOrderAmount())<0){
-                throw new CouponException("Minimum order amount is "+coupon.getMinimumOrderAmount());
-            }
-            discount=cartTotal.multiply(coupon.getDiscountPercentage())
-                    .divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
-            finalAmount=cartTotal.subtract(discount);
-            int currentUsage=coupon.getUsageCount()==null
-                    ? 0:coupon.getUsageCount();
-            coupon.setUsageCount(currentUsage);
+        User user = userMapper.getCurrentUser();
+        Cart cart = cartMapper.getCartForUser(user);
+        if (cart.getCartItemsList().isEmpty()
+                || cart.getTotalAmount() == null
+                || cart.getTotalAmount().signum() <= 0) {
+            throw new IllegalArgumentException
+                    ("Cannot place an order from an empty cart.");
+        }
+
+        BigDecimal cartTotal = cart.getTotalAmount();
+        BigDecimal discount = BigDecimal.ZERO;
+        Coupon coupon = null;
+        if (couponCode != null && !couponCode.isBlank()) {
+            coupon = couponRepository.findByCouponCode(couponCode.trim().toUpperCase(Locale.ROOT))
+                    .orElseThrow(() ->
+                    new CouponNotFoundException("Invalid coupon code"));
+            validateCoupon(coupon, cartTotal);
+            discount = cartTotal.multiply(coupon.getDiscountPercentage())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            coupon.setUsageCount(coupon.getUsageCount() + 1);
             couponRepository.save(coupon);
         }
-        Order newOrder=new Order();
-        newOrder.setUser(existingUser);
-        newOrder.setOrderStatus(OrderStatus.PLACED);
-        newOrder.setOrderNumber(UUID.randomUUID().toString());
-        newOrder.setCouponCode(couponCode);
-        newOrder.setDiscountAmount(discount);
-        newOrder.setTotalOrderAmount(finalAmount);
-        newOrder.setTotalOrderAmount(userCart.getTotalAmount());
-        for(CartItems cartItems:userCart.getCartItemsList()){
-            OrderItems orderItems=new OrderItems();
-            orderItems.setOrder(newOrder);
-            orderItems.setProduct(cartItems.getProduct());
-            orderItems.setQuantity(cartItems.getQuantity());
-            orderItems.setPriceAtAdded(cartItems.getPriceAtAdded());
-            newOrder.getOrderItemsList().add(orderItems);
-            Product existingProduct=cartItems.getProduct();
-            if(existingProduct.getStockQuantity()<cartItems.getQuantity()){
-                throw new IllegalArgumentException("Only "+existingProduct.getStockQuantity()+" is available.");
+
+        Order order = new Order();
+        order.setUser(user);
+        order.setOrderStatus(OrderStatus.PLACED);
+        order.setOrderNumber(UUID.randomUUID().toString());
+        order.setCouponCode(coupon == null ? null : coupon.getCouponCode());
+        order.setDiscountAmount(discount);
+        order.setTotalOrderAmount(cartTotal.subtract(discount));
+
+        for (CartItems cartItem : new ArrayList<>(cart.getCartItemsList())) {
+            Product product = productRepository.findById(cartItem.getProduct().getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException
+                            ("Product not found"));
+            if (!Boolean.TRUE.equals(product.getActive())
+                    || product.getStockQuantity() < cartItem.getQuantity()) {
+                throw new IllegalArgumentException
+                        ("Product is unavailable in the requested quantity.");
             }
-            existingProduct.setStockQuantity(existingProduct.getStockQuantity()- cartItems.getQuantity());
-            productRepository.save(existingProduct);
-        }
-        orderRepository.save(newOrder);
-        userCart.getCartItemsList().clear();
-        cartMapper.calculateTotalCartAmount(userCart);
-        cartRepository.save(userCart);
-        return orderMapper.mapOrderToResponse(newOrder);
-    }
+            product.setStockQuantity(product.getStockQuantity() - cartItem.getQuantity());
+            productRepository.save(product);
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<OrderResponseDto> getUserOrders() {
-        User existingUser=userMapper.getCurrentUser();
-        List<Order> orderList=orderRepository.findByUser(existingUser);
-        List<OrderResponseDto> orderResponseDtoList=new ArrayList<>();
-        for(Order order:orderList){
-            orderResponseDtoList.add(orderMapper.mapOrderToResponse(order));
+            OrderItems item = new OrderItems();
+            item.setOrder(order);
+            item.setProduct(product);
+            item.setQuantity(cartItem.getQuantity());
+            item.setPriceAtAdded(cartItem.getPriceAtAdded());
+            order.getOrderItemsList().add(item);
         }
-        return orderResponseDtoList;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public OrderResponseDto getOrderById(Long orderId) {
-        User existingUser=userMapper.getCurrentUser();
-        Order order=orderMapper.getOrder(orderId);
-        if(existingUser.getRole()!= Role.ADMIN
-                && !order.getUser().getUserId().equals(existingUser.getUserId())){
-            throw new OrderNotFoundException("Order not found for Id: "+orderId);
-        }
+        orderRepository.save(order);
+        cart.getCartItemsList().clear();
+        cartMapper.calculateTotalCartAmount(cart);
+        cartRepository.save(cart);
         return orderMapper.mapOrderToResponse(order);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<OrderResponseDto> getAllOrders() {
-        List<Order> orderList =orderRepository.findAll();
-        List<OrderResponseDto> orderResponseDtoList=new ArrayList<>();
-        for(Order order:orderList){
-            orderResponseDtoList.add(orderMapper.mapOrderToResponse(order));
+    public List<OrderResponseDto> getUserOrders() {
+        return orderRepository.findByUser(
+                userMapper.getCurrentUser())
+                .stream()
+                .map(orderMapper::mapOrderToResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponseDto getOrderById(Long orderId) {
+        User user = userMapper.getCurrentUser();
+        Order order = orderMapper.getOrder(orderId);
+        if (user.getRole() != Role.ADMIN
+                && !order.getUser().getUserId().equals(user.getUserId())){
+            throw new OrderNotFoundException("Order not found for Id: " + orderId);
         }
-        return orderResponseDtoList;
+        return orderMapper.mapOrderToResponse(order);
+    }
+
+    @Override @Transactional(readOnly = true)
+    public List<OrderResponseDto> getAllOrders() {
+        return orderRepository.findAll()
+                .stream()
+                .map(orderMapper::mapOrderToResponse)
+                .toList();
     }
 
     @Override
     @Transactional
-    public OrderResponseDto updateOrderStatus(Long orderId, OrderStatusUpdateRequestDto orderStatusUpdateRequestDto) {
-        Order order=orderMapper.getOrder(orderId);
-        validateOrderStatus(order.getOrderStatus(),orderStatusUpdateRequestDto.getOrderStatus());
-        if(orderStatusUpdateRequestDto.getOrderStatus() == OrderStatus.CANCELLED){
-            for(OrderItems orderItems: order.getOrderItemsList()){
-                Product product=orderItems.getProduct();
-                product.setStockQuantity(
-                        product.getStockQuantity()+orderItems.getQuantity());
-                productRepository.save(product);
-            }
+    public OrderResponseDto updateOrderStatus(Long orderId, OrderStatusUpdateRequestDto request) {
+        Order order = orderMapper.getOrder(orderId);
+        validateOrderStatus(order.getOrderStatus(), request.getOrderStatus());
+        if (request.getOrderStatus() == OrderStatus.CANCELLED){
+            restoreStock(order);
         }
-        order.setOrderStatus(orderStatusUpdateRequestDto.getOrderStatus());
+        order.setOrderStatus(request.getOrderStatus());
         return orderMapper.mapOrderToResponse(orderRepository.save(order));
     }
 
     @Override
     @Transactional
     public OrderResponseDto cancelOrder(Long orderId) {
-        User user=userMapper.getCurrentUser();
-        Order order=orderMapper.getOrder(orderId);
-        if(!order.getUser().getUserId().equals(user.getUserId())){
-            throw new AccessDeniedException("You are not authorized to cancel the order.");
+        User user = userMapper.getCurrentUser();
+        Order order = orderMapper.getOrder(orderId);
+        if (!order.getUser().getUserId().equals(user.getUserId())){
+            throw new AccessDeniedException("You are not authorized to cancel this order.");
         }
-        if(order.getOrderStatus()!=OrderStatus.PLACED
-                && order.getOrderStatus()!= OrderStatus.CANCELLED){
-            throw new OrderStatusException(
-                    "Order cannot be cancelled from "+order.getOrderStatus()+"status.");
+        if (order.getOrderStatus() != OrderStatus.PLACED){
+            throw new OrderStatusException("Order cannot be cancelled from " + order.getOrderStatus() + ".");
         }
-        if(order.getOrderStatus()!= OrderStatus.CANCELLED) {
-            throw new OrderStatusException(
-                    "Order is already in " + order.getOrderStatus() + "status.");
-        }
+        restoreStock(order);
         order.setOrderStatus(OrderStatus.CANCELLED);
         return orderMapper.mapOrderToResponse(orderRepository.save(order));
     }

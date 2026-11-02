@@ -2,11 +2,14 @@ package com.shopsphere.exception;
 
 import com.shopsphere.dto.ErrorResponseDto;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -63,9 +66,31 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new ErrorResponseDto(
                 LocalDateTime.now(),
                 HttpStatus.FORBIDDEN.value(),
-                ex.getMessage(),
+                "An unexpected error occurred",
                 httpServletRequest.getRequestURI()
         ),HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler({IllegalArgumentException.class,
+            MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponseDto> badRequest(Exception ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Invalid request"),
+                HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponseDto> constraintViolation
+            (ConstraintViolationException ex) {
+        return new ResponseEntity<>(new ErrorResponseDto(
+                        LocalDateTime.now(),
+                        HttpStatus.BAD_REQUEST.value(),
+                        "Validation Failed"
+                ),HttpStatus.BAD_REQUEST
+        );
     }
 
     @ExceptionHandler(Exception.class)
@@ -74,7 +99,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new ErrorResponseDto(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                ex.getMessage(),
+                "An unexpected error occurred",
                 httpServletRequest.getRequestURI()
         ),HttpStatus.INTERNAL_SERVER_ERROR);
     }
