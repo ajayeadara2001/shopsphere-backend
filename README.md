@@ -299,26 +299,26 @@ ShopSphere includes automated tests for the JWT authentication components and ap
 ### Test coverage
 
 - **`JwtServiceImplTest`**
-   - JWT generation and email extraction
-   - Token validation for the correct user
-   - Rejection of a token belonging to a different user
-   - Expired, malformed and tampered token handling
-   - Null user-details handling
+    - JWT generation and email extraction
+    - Token validation for the correct user
+    - Rejection of a token belonging to a different user
+    - Expired, malformed and tampered token handling
+    - Null user-details handling
 
 - **`JWTAuthenticationFilterTest`**
-   - Missing and non-Bearer Authorization headers
-   - Authentication using a valid JWT
-   - Expired and malformed token handling
-   - Rejection when the token does not match the user
-   - Existing authentication handling
-   - Null extracted email and user lookup failure
+    - Missing and non-Bearer Authorization headers
+    - Authentication using a valid JWT
+    - Expired and malformed token handling
+    - Rejection when the token does not match the user
+    - Existing authentication handling
+    - Null extracted email and user lookup failure
 
 - **`JWTAuthenticationEntryPointTest`**
-   - JSON response for HTTP 401 Unauthorized
-   - Exception message and request path in the response
+    - JSON response for HTTP 401 Unauthorized
+    - Exception message and request path in the response
 
 - **`ShopsphereBackendApplicationTests`**
-   - Spring application context startup
+    - Spring application context startup
 
 ### Run tests
 
