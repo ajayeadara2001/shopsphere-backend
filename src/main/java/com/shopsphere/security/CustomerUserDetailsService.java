@@ -18,7 +18,8 @@ public class CustomerUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(@NonNull String username) throws UsernameNotFoundException {
         User user =userRepository.findByEmail(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        return org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getEmail())
                 .password(user.getPassword())
                 .authorities("ROLE_"+ user.getRole().name())
                 .build();

@@ -22,6 +22,7 @@ public class JWTAccessDeniedHandler implements AccessDeniedHandler {
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException)
             throws IOException {
+        response.setCharacterEncoding("UTF-8");
         response.setContentType("application/json");
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 
@@ -31,7 +32,6 @@ public class JWTAccessDeniedHandler implements AccessDeniedHandler {
         errors.put("error","Forbidden");
         errors.put("message",accessDeniedException.getMessage());
         errors.put("path",request.getRequestURI());
-
         objectMapper.writeValue(response.getOutputStream(),errors);
     }
 }

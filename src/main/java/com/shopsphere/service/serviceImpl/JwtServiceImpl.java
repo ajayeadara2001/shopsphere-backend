@@ -15,7 +15,7 @@ import java.util.Date;
 
 @Service
 public class JwtServiceImpl implements JwtService {
-    @Value("${jwt.secret}")
+    @Value("${JWT_SECRET}")
     private String secret;
     @Value("${jwt.expiration}")
     private long expiration;
