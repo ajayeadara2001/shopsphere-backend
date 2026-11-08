@@ -30,9 +30,9 @@ jobs:
           --health-retries 10
 
     env:
-      DB_URL: jdbc:postgresql://localhost:5432/shopsphere_test_db
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      TEST_DB_URL: jdbc:postgresql://localhost:5432/shopsphere_test_db
+      TEST_DB_USERNAME: postgres
+      TEST_DB_PASSWORD: postgres
       JWT_SECRET: 0123456789012345678901234567890123456789012345678901234567890123
       JWT_EXPIRATION: 86400000
 
