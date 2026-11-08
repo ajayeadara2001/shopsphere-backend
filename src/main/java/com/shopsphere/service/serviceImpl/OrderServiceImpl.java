@@ -1,6 +1,9 @@
+
 package com.shopsphere.service.serviceImpl;
 
 import com.shopsphere.constant.OrderStatus;
+import com.shopsphere.constant.PaymentStatus;
+import com.shopsphere.constant.RefundStatus;
 import com.shopsphere.constant.Role;
 import com.shopsphere.dto.OrderResponseDto;
 import com.shopsphere.dto.OrderStatusUpdateRequestDto;
@@ -18,10 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -30,31 +30,90 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
     private final CouponRepository couponRepository;
+    private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
     private final UserMapper userMapper;
     private final CartMapper cartMapper;
     private final OrderMapper orderMapper;
 
     private void requireNext(OrderStatus proposed, OrderStatus... allowed) {
         for (OrderStatus status : allowed) {
-            if (status == proposed) return;
+            if (status == proposed) {
+                return;
+            }
         }
         throw new OrderStatusException("Invalid order status transition.");
     }
 
+    private Order getOrderWithLock(Long orderId) {
+        return orderRepository.findWithLockByOrderId(orderId)
+                .orElseThrow(() -> new OrderNotFoundException
+                        ("Order not found for Id: " + orderId));
+    }
+
     private void restoreStock(Order order) {
-        for (OrderItems item : order.getOrderItemsList()) {
-            Product product = item.getProduct();
+        List<OrderItems> sortedItems = new ArrayList<>
+                (order.getOrderItemsList());
+        sortedItems.sort(Comparator.comparing
+                (item -> item.getProduct().getProductId()));
+
+        for (OrderItems item : sortedItems) {
+            Long productId = item.getProduct().getProductId();
+            Product product = productRepository.findByIdWithLock(productId)
+                    .orElseThrow(() ->new ProductNotFoundException("Product not found"));
             product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
             productRepository.save(product);
         }
     }
+
+    private void createCancellationRefund(Order order) {
+        Payment latestPayment = paymentRepository.findFirstByOrderOrderByPaymentIdDesc(order)
+                .orElseThrow(() -> new PaymentStatusException
+                        ("Confirmed order has no payment record."));
+        Payment payment = paymentRepository
+                .findWithLockByPaymentId(latestPayment.getPaymentId())
+                .orElseThrow(() -> new PaymentNotFoundException
+                        ("Payment not found for Id: "+ latestPayment.getPaymentId()));
+        if (payment.getPaymentStatus() != PaymentStatus.SUCCESS
+                && payment.getPaymentStatus() != PaymentStatus.REFUNDED) {
+            throw new PaymentStatusException(
+                    "Confirmed order does not have a reconciled payment. "
+                            + "Cancellation requires payment reconciliation.");
+        }
+        BigDecimal alreadyCommitted = refundRepository
+                .findByPaymentPaymentId(payment.getPaymentId())
+                .stream()
+                .filter(refund ->
+                        refund.getRefundStatus() == RefundStatus.PENDING
+                                || refund.getRefundStatus() == RefundStatus.COMPLETED)
+                .map(Refund::getRefundAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal remainingRefundable = payment.getAmount()
+                .subtract(alreadyCommitted);
+        if (remainingRefundable.signum() < 0) {
+            throw new RefundException
+                    ("Existing refunds exceed the original payment amount.");
+        }
+        if (remainingRefundable.signum() > 0) {
+            Refund refund = new Refund();
+            refund.setPayment(payment);
+            refund.setRefundAmount(remainingRefundable);
+            refund.setRefundReason
+                    ("Refund due to admin cancellation of order "+ order.getOrderNumber());
+            refund.setRefundStatus(RefundStatus.PENDING);
+            refundRepository.save(refund);
+        }
+    }
+
     private void validateOrderStatus(OrderStatus currentStatus, OrderStatus newStatus) {
         switch (currentStatus) {
-            case PLACED -> requireNext(newStatus, OrderStatus.CONFIRMED, OrderStatus.CANCELLED);
-            case CONFIRMED -> requireNext(newStatus, OrderStatus.SHIPPED, OrderStatus.CANCELLED);
-            case SHIPPED -> requireNext(newStatus, OrderStatus.OUT_FOR_DELIVERY);
-            case OUT_FOR_DELIVERY -> requireNext(newStatus, OrderStatus.DELIVERED);
-            case DELIVERED, CANCELLED -> throw new OrderStatusException("Order is already " + currentStatus + ".");
+            case PLACED -> requireNext(newStatus,OrderStatus.CONFIRMED,OrderStatus.CANCELLED);
+            case CONFIRMED -> requireNext(newStatus,OrderStatus.SHIPPED,OrderStatus.CANCELLED);
+            case SHIPPED -> requireNext(newStatus,OrderStatus.OUT_FOR_DELIVERY);
+            case OUT_FOR_DELIVERY -> requireNext(newStatus,OrderStatus.DELIVERED);
+            case DELIVERED, CANCELLED -> throw new OrderStatusException
+                    ("Order is already " + currentStatus + ".");
         }
     }
 
@@ -63,15 +122,16 @@ public class OrderServiceImpl implements OrderService {
             throw new CouponException("Coupon is inactive");
         }
         if (coupon.getExpiryDate() == null
-                || !coupon.getExpiryDate().isAfter(LocalDateTime.now())){
+                || !coupon.getExpiryDate().isAfter(LocalDateTime.now())) {
             throw new CouponException("Coupon is expired");
         }
         if (coupon.getUsageLimit() != null
-                && coupon.getUsageCount() >= coupon.getUsageLimit()){
+                && coupon.getUsageCount() >= coupon.getUsageLimit()) {
             throw new CouponException("Coupon usage limit exceeded");
         }
-        if (cartTotal.compareTo(coupon.getMinimumOrderAmount()) < 0){
-            throw new CouponException("Minimum order amount is " + coupon.getMinimumOrderAmount());
+        if (cartTotal.compareTo(coupon.getMinimumOrderAmount()) < 0) {
+            throw new CouponException
+                    ("Minimum order amount is "+ coupon.getMinimumOrderAmount());
         }
     }
 
@@ -86,17 +146,16 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException
                     ("Cannot place an order from an empty cart.");
         }
-
         BigDecimal cartTotal = cart.getTotalAmount();
         BigDecimal discount = BigDecimal.ZERO;
         Coupon coupon = null;
         if (couponCode != null && !couponCode.isBlank()) {
-            coupon = couponRepository.findByCouponCode(couponCode.trim().toUpperCase(Locale.ROOT))
-                    .orElseThrow(() ->
-                    new CouponNotFoundException("Invalid coupon code"));
+            coupon = couponRepository.findByCouponCode
+                    (couponCode.trim().toUpperCase(Locale.ROOT))
+                    .orElseThrow(() ->new CouponNotFoundException("Invalid coupon code"));
             validateCoupon(coupon, cartTotal);
             discount = cartTotal.multiply(coupon.getDiscountPercentage())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(100),2,RoundingMode.HALF_UP);
             coupon.setUsageCount(coupon.getUsageCount() + 1);
             couponRepository.save(coupon);
         }
@@ -108,9 +167,13 @@ public class OrderServiceImpl implements OrderService {
         order.setCouponCode(coupon == null ? null : coupon.getCouponCode());
         order.setDiscountAmount(discount);
         order.setTotalOrderAmount(cartTotal.subtract(discount));
+        List<CartItems> sortedCartItems = new ArrayList<>(cart.getCartItemsList());
+        sortedCartItems.sort(Comparator.comparing
+                (item -> item.getProduct().getProductId()));
 
-        for (CartItems cartItem : new ArrayList<>(cart.getCartItemsList())) {
-            Product product = productRepository.findById(cartItem.getProduct().getProductId())
+        for (CartItems cartItem : sortedCartItems) {
+            Long productId = cartItem.getProduct().getProductId();
+            Product product = productRepository.findByIdWithLock(productId)
                     .orElseThrow(() -> new ProductNotFoundException
                             ("Product not found"));
             if (!Boolean.TRUE.equals(product.getActive())
@@ -120,7 +183,6 @@ public class OrderServiceImpl implements OrderService {
             }
             product.setStockQuantity(product.getStockQuantity() - cartItem.getQuantity());
             productRepository.save(product);
-
             OrderItems item = new OrderItems();
             item.setOrder(order);
             item.setProduct(product);
@@ -138,8 +200,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getUserOrders() {
-        return orderRepository.findByUser(
-                userMapper.getCurrentUser())
+        return orderRepository.findByUser(userMapper.getCurrentUser())
                 .stream()
                 .map(orderMapper::mapOrderToResponse)
                 .toList();
@@ -151,13 +212,15 @@ public class OrderServiceImpl implements OrderService {
         User user = userMapper.getCurrentUser();
         Order order = orderMapper.getOrder(orderId);
         if (user.getRole() != Role.ADMIN
-                && !order.getUser().getUserId().equals(user.getUserId())){
-            throw new OrderNotFoundException("Order not found for Id: " + orderId);
+                && !order.getUser().getUserId().equals(user.getUserId())) {
+            throw new OrderNotFoundException
+                    ("Order not found for Id: " + orderId);
         }
         return orderMapper.mapOrderToResponse(order);
     }
 
-    @Override @Transactional(readOnly = true)
+    @Override
+    @Transactional(readOnly = true)
     public List<OrderResponseDto> getAllOrders() {
         return orderRepository.findAll()
                 .stream()
@@ -167,10 +230,13 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponseDto updateOrderStatus(Long orderId, OrderStatusUpdateRequestDto request) {
-        Order order = orderMapper.getOrder(orderId);
-        validateOrderStatus(order.getOrderStatus(), request.getOrderStatus());
-        if (request.getOrderStatus() == OrderStatus.CANCELLED){
+    public OrderResponseDto updateOrderStatus(Long orderId,OrderStatusUpdateRequestDto request) {
+        Order order = getOrderWithLock(orderId);
+        validateOrderStatus(order.getOrderStatus(),request.getOrderStatus());
+        if (request.getOrderStatus() == OrderStatus.CANCELLED) {
+            if (order.getOrderStatus() == OrderStatus.CONFIRMED) {
+                createCancellationRefund(order);
+            }
             restoreStock(order);
         }
         order.setOrderStatus(request.getOrderStatus());
@@ -181,15 +247,19 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponseDto cancelOrder(Long orderId) {
         User user = userMapper.getCurrentUser();
-        Order order = orderMapper.getOrder(orderId);
-        if (!order.getUser().getUserId().equals(user.getUserId())){
-            throw new AccessDeniedException("You are not authorized to cancel this order.");
+        Order order = getOrderWithLock(orderId);
+        if (!order.getUser().getUserId().equals(user.getUserId())) {
+            throw new AccessDeniedException
+                    ("You are not authorized to cancel this order.");
         }
-        if (order.getOrderStatus() != OrderStatus.PLACED){
-            throw new OrderStatusException("Order cannot be cancelled from " + order.getOrderStatus() + ".");
+        if (order.getOrderStatus() != OrderStatus.PLACED) {
+            throw new OrderStatusException
+                    ("Order cannot be cancelled from "+ order.getOrderStatus() + ".");
         }
         restoreStock(order);
         order.setOrderStatus(OrderStatus.CANCELLED);
-        return orderMapper.mapOrderToResponse(orderRepository.save(order));
+        return orderMapper.mapOrderToResponse(
+                orderRepository.save(order)
+        );
     }
 }

@@ -1,4 +1,4 @@
 package com.shopsphere.dto;
 
-public interface OnCreate {
+public interface OnCreate{
 }

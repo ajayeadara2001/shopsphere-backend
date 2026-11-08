@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new ErrorResponseDto(
                 LocalDateTime.now(),
                 HttpStatus.FORBIDDEN.value(),
-                "An unexpected error occurred",
+                ex.getMessage(),
                 httpServletRequest.getRequestURI()
         ),HttpStatus.FORBIDDEN);
     }
@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new ErrorResponseDto(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
-                "Invalid request"),
+                ex.getMessage()),
                 HttpStatus.BAD_REQUEST);
     }
 
@@ -88,7 +88,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new ErrorResponseDto(
                         LocalDateTime.now(),
                         HttpStatus.BAD_REQUEST.value(),
-                        "Validation Failed"
+                        ex.getMessage()
                 ),HttpStatus.BAD_REQUEST
         );
     }
@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new ErrorResponseDto(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "An unexpected error occurred",
+                ex.getMessage(),
                 httpServletRequest.getRequestURI()
         ),HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -178,13 +178,22 @@ public class GlobalExceptionHandler {
         ),HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(WishlistNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> wishlistNotException(WishlistNotFoundException ex){
+        return new ResponseEntity<>(new ErrorResponseDto(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage()
+        ),HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(WishlistException.class)
     public ResponseEntity<ErrorResponseDto> wishlistException(WishlistException ex){
         return new ResponseEntity<>(new ErrorResponseDto(
                 LocalDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.CONFLICT.value(),
                 ex.getMessage()
-        ),HttpStatus.BAD_REQUEST);
+        ),HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(AddressException.class)

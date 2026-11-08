@@ -2,7 +2,7 @@ package com.shopsphere.mapper;
 
 import com.shopsphere.dto.CouponResponseDto;
 import com.shopsphere.entity.Coupon;
-import com.shopsphere.exception.CartNotFoundException;
+import com.shopsphere.exception.CouponNotFoundException;
 import com.shopsphere.repository.CouponRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -25,7 +25,7 @@ public class CouponMapper {
     }
     public Coupon getCouponById(Long couponId){
         return couponRepository.findById(couponId)
-                .orElseThrow(()-> new CartNotFoundException
+                .orElseThrow(()-> new CouponNotFoundException
                         ("Coupon not found for ID: "+couponId));
     }
 }
