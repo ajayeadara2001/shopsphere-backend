@@ -18,6 +18,24 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(
+            org.springframework.security.authorization.AuthorizationDeniedException.class
+    )
+    public ResponseEntity<ErrorResponseDto> springSecurityAuthorizationDenied(
+            org.springframework.security.authorization.AuthorizationDeniedException ex,
+            HttpServletRequest httpServletRequest
+    ) {
+        return new ResponseEntity<>(
+                new ErrorResponseDto(
+                        LocalDateTime.now(),
+                        HttpStatus.FORBIDDEN.value(),
+                        ex.getMessage(),
+                        httpServletRequest.getRequestURI()
+                ),
+                HttpStatus.FORBIDDEN
+        );
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorResponseDto> userNotFoundException(UserNotFoundException ex){
         ErrorResponseDto errorResponseDto=new ErrorResponseDto(

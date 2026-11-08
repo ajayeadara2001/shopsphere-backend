@@ -4,8 +4,6 @@ import com.shopsphere.dto.ProductRequestDto;
 import com.shopsphere.dto.ProductResponseDto;
 import com.shopsphere.entity.Category;
 import com.shopsphere.entity.Product;
-import com.shopsphere.exception.CategoryNotFoundException;
-import com.shopsphere.exception.ProductNotFoundException;
 import com.shopsphere.mapper.CategoryMapper;
 import com.shopsphere.mapper.ProductMapper;
 import com.shopsphere.repository.CategoryRepository;

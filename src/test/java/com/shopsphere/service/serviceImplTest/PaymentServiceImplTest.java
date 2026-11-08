@@ -1,4 +1,4 @@
-package com.shopsphere.service.serviceImpl;
+package com.shopsphere.service.serviceImplTest;
 
 import com.shopsphere.constant.OrderStatus;
 import com.shopsphere.constant.PaymentMethod;
@@ -14,6 +14,7 @@ import com.shopsphere.exception.PaymentStatusException;
 import com.shopsphere.mapper.PaymentMapper;
 import com.shopsphere.mapper.UserMapper;
 import com.shopsphere.repository.*;
+import com.shopsphere.service.serviceImpl.PaymentServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

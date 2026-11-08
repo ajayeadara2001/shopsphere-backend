@@ -1,5 +1,8 @@
-package com.shopsphere.security;
+package com.shopsphere.securityTest;
 
+import com.shopsphere.security.CustomerUserDetailsService;
+import com.shopsphere.security.JWTAuthenticationEntryPoint;
+import com.shopsphere.security.JWTAuthenticationFilter;
 import com.shopsphere.service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;

@@ -1,6 +1,7 @@
-package com.shopsphere.service.serviceImpl;
+package com.shopsphere.service.serviceImplTest;
 
 import com.shopsphere.service.JwtService;
+import com.shopsphere.service.serviceImpl.JwtServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.User;

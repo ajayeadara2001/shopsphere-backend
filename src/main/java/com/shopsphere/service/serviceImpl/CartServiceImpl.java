@@ -12,8 +12,6 @@ import com.shopsphere.mapper.ProductMapper;
 import com.shopsphere.mapper.UserMapper;
 import com.shopsphere.repository.CartItemsRepository;
 import com.shopsphere.repository.CartRepository;
-import com.shopsphere.repository.ProductRepository;
-import com.shopsphere.repository.UserRepository;
 import com.shopsphere.service.CartService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

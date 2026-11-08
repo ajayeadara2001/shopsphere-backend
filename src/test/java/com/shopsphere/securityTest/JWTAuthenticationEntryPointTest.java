@@ -1,6 +1,8 @@
-package com.shopsphere.security;
+package com.shopsphere.securityTest;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.shopsphere.security.JWTAuthenticationEntryPoint;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
