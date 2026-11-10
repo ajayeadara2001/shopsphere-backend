@@ -52,3 +52,9 @@ jobs:
 
       - name: Run tests and package application
         run: ./mvnw -B clean verify
+
+      - name: Build Docker image
+        env:
+          DB_USERNAME: postgres
+          DB_PASSWORD: ci-build-password
+        run: docker compose build
