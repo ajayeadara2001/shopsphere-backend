@@ -3,11 +3,25 @@
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-database-336791)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-containerized-2496ED)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![CI](https://github.com/ajayeadara2001/shopsphere-backend/actions/workflows/ci.yml/badge.svg)
 
-Production-style e-commerce REST API built with Spring Boot. It provides JWT authentication, role-based access control, product/catalog management, carts, orders, payments, refunds, coupons, reviews, Flyway migrations, Swagger documentation, automated tests, CI, and Docker support.
+Production-style e-commerce REST API built with Spring Boot, Spring Security, JWT, PostgreSQL, Flyway, Docker, GitHub Actions, Render, and Neon.
+
+ShopSphere supports customers and administrators managing users, categories, products, carts, addresses, wishlists, orders, payments, coupons, reviews, and refunds. Order, payment, and refund flows use transactions and database locking to keep stock and payment data consistent.
+
+## Live Demo
+
+ShopSphere is deployed as a Dockerized Spring Boot service on Render with Neon PostgreSQL.
+
+| Resource | URL |
+|---|---|
+| API base URL | https://shopsphere-backend-tqav.onrender.com |
+| Swagger UI | https://shopsphere-backend-tqav.onrender.com/swagger-ui/index.html |
+| OpenAPI JSON | https://shopsphere-backend-tqav.onrender.com/v3/api-docs |
+
+> The free Render service spins down after inactivity. The first request after it sleeps can take around one minute.
 
 ## Table of Contents
 
@@ -15,12 +29,12 @@ Production-style e-commerce REST API built with Spring Boot. It provides JWT aut
 - [Features](#features)
 - [Business Rules](#business-rules)
 - [Getting Started](#getting-started)
-- [Run with Docker](#run-with-docker)
+- [Docker Setup](#docker-setup)
 - [API Overview](#api-overview)
-- [API Documentation](#api-documentation)
-- [Error Format](#error-format)
+- [Swagger UI](#swagger-ui)
 - [Testing](#testing)
 - [Continuous Integration](#continuous-integration)
+- [Deployment](#deployment)
 - [Project Structure](#project-structure)
 - [Roadmap](#roadmap)
 - [License](#license)
@@ -33,51 +47,51 @@ Production-style e-commerce REST API built with Spring Boot. It provides JWT aut
 | Language | Java 21 |
 | Framework | Spring Boot 4.1.1 |
 | Web | Spring Web MVC |
+| Security | Spring Security, JWT, BCrypt |
 | Database | PostgreSQL |
 | Persistence | Spring Data JPA, Hibernate |
-| Database migration | Flyway |
-| Authentication | JWT with JJWT 0.12.6 |
-| Authorization | Spring Security, RBAC, `@PreAuthorize` |
-| Password hashing | BCrypt |
-| API documentation | springdoc-openapi 3.2.0, Swagger UI |
+| Database migrations | Flyway |
+| Validation | Jakarta Bean Validation |
+| API documentation | springdoc-openapi / Swagger UI |
 | Monitoring | Spring Boot Actuator |
 | Build tool | Maven Wrapper |
-| Testing | JUnit 5, Mockito, MockMvc, Spring Boot Test |
-| CI | GitHub Actions with PostgreSQL |
+| Testing | JUnit 5, Mockito, MockMvc, Spring Security Test |
 | Containerization | Docker and Docker Compose |
+| CI | GitHub Actions with PostgreSQL |
+| Hosting | Render |
+| Hosted database | Neon PostgreSQL |
 
 ## Features
 
-- User registration and JWT login
-- BCrypt-hashed passwords
+- Customer registration and JWT login
+- BCrypt password hashing
 - Stateless JWT authentication
-- Role-based authorization for `CUSTOMER` and `ADMIN`
-- Centralized JSON exception handling
-- Consistent 401 and 403 security responses
-- Public listing of active products and categories
-- Admin-only product and category management
-- Soft delete through deactivate/reactivate operations
-- Cart management with stock validation and price snapshots
-- Transactional order placement from the cart
-- Coupon validation, discount calculation, usage limits, and expiry validation
-- Order status workflow with validated transitions
-- Customer cancellation while an order is `PLACED`
-- Stock deduction, restoration, pessimistic locks, and rollback protection
-- Simulated payment creation and payment retry after failure
-- Admin payment success/failed updates
-- Automatic pending refund when an admin cancels a paid confirmed order
-- Partial and full refund workflow
+- Role-based access control for `CUSTOMER` and `ADMIN`
+- Method-level authorization using `@PreAuthorize`
+- Centralized JSON error handling
+- Public active category and product catalog
+- Admin category and product management
+- Soft delete through deactivate/reactivate actions
+- Shopping cart with stock validation and price snapshots
 - Address book with automatic default-address handling
-- Wishlist duplicate protection
-- Product reviews available only after delivery
+- Wishlist with duplicate protection
+- Product reviews for delivered orders only
+- Coupon validation, expiry, minimum amount, usage limits, and discount calculation
+- Order placement from the cart
+- Validated order status transitions
+- Pessimistic locking for stock, orders, and payments
+- Payment creation, failure, retry, and success workflow
+- Partial and full refund workflows
+- Automatic pending refund when an admin cancels a paid confirmed order
+- Flyway-managed database schema
 - Swagger UI with JWT bearer authentication
-- Flyway migration-based schema management
-- GitHub Actions CI
-- Dockerized backend and PostgreSQL local environment
+- Dockerized local setup
+- Automated tests and GitHub Actions CI
+- Public cloud deployment on Render with Neon PostgreSQL
 
 ## Business Rules
 
-### Order lifecycle
+### Order Lifecycle
 
 | Current status | Allowed next status |
 |---|---|
@@ -85,41 +99,45 @@ Production-style e-commerce REST API built with Spring Boot. It provides JWT aut
 | `CONFIRMED` | `SHIPPED`, `CANCELLED` |
 | `SHIPPED` | `OUT_FOR_DELIVERY` |
 | `OUT_FOR_DELIVERY` | `DELIVERED` |
-| `DELIVERED`, `CANCELLED` | Final state |
+| `DELIVERED` | Final status |
+| `CANCELLED` | Final status |
 
-- Customers can cancel only their own order and only while it is `PLACED`.
-- Order placement validates stock and coupon rules, snapshots prices, deducts stock, and clears the cart in one transaction.
-- If any product has insufficient stock, the complete order transaction rolls back.
+- Customers can cancel only their own orders.
+- Customers can cancel only while an order is `PLACED`.
+- Placing an order validates stock, applies an optional coupon, snapshots prices, deducts stock, and clears the cart in one transaction.
+- If one item has insufficient stock, the complete order operation rolls back.
 - Cancelling an order restores stock.
 
 ### Payments
 
 - A customer can create a payment only for their own `PLACED` order.
-- Only one `PENDING` payment is allowed per order.
-- A customer can retry after a `FAILED` payment.
-- Admin payment success changes the order to `CONFIRMED`.
-- Admin payment failure keeps the order at `PLACED`.
+- Only one pending payment can exist for an order.
+- A customer can retry payment after a previous payment fails.
+- Admin can mark payments as `SUCCESS` or `FAILED`.
+- A successful payment confirms the order.
 
 ### Refunds
 
-- Refunds require a successful payment.
-- The total of `PENDING` and `COMPLETED` refunds cannot exceed the payment amount.
-- Admin can mark a pending refund as `COMPLETED` or `FAILED`.
-- When completed refunds cover the complete payment amount, payment status becomes `REFUNDED`.
-- Admin cancellation of a confirmed paid order automatically creates a pending refund for the remaining refundable amount.
+- Refunds can be requested only for successful payments.
+- Total pending and completed refunds cannot exceed the original payment amount.
+- Admin can complete or fail a pending refund.
+- When completed refunds equal the payment amount, payment status becomes `REFUNDED`.
+- Admin cancellation of a confirmed paid order creates a pending refund for the remaining refundable amount.
 
 ### Coupons
 
-- Coupons must be active, unexpired, within usage limits, and meet the minimum cart amount.
-- Codes are normalized to uppercase.
-- Discount calculation uses two-decimal `HALF_UP` rounding.
-- Deleting a coupon deactivates it instead of deleting the row.
+- Coupons must be active and unexpired.
+- The cart total must satisfy the coupon minimum amount.
+- Coupon usage cannot exceed its usage limit.
+- Coupon codes are normalized to uppercase.
+- Discounts are rounded to two decimal places using `HALF_UP`.
+- Deleting a coupon deactivates it instead of deleting its database row.
 
 ### Concurrency
 
-- `PESSIMISTIC_WRITE` locks protect critical order, payment, and product operations.
-- Products are locked in sorted ID order to reduce deadlock risk.
-- `@Version` optimistic locking is used for `Product` and `Coupon`.
+- Products, orders, and payments use pessimistic write locks where required.
+- Products are locked in consistent ID order during order placement to reduce deadlock risk.
+- `Product` and `Coupon` use optimistic locking with `@Version`.
 
 ## Getting Started
 
@@ -127,132 +145,140 @@ Production-style e-commerce REST API built with Spring Boot. It provides JWT aut
 
 - JDK 21
 - PostgreSQL
-- Docker Desktop (recommended for one-command local setup)
-- Maven is optional because the Maven Wrapper is included
+- Docker Desktop, optional but recommended
+- Maven 3.9+, optional because Maven Wrapper is included
 
-### Manual setup
+### Clone the Repository
 
-1. Clone the repository:
+```bash
+git clone https://github.com/ajayeadara2001/shopsphere-backend.git
+cd shopsphere-backend
+```
 
-   ```bash
-   git clone https://github.com/ajayeadara2001/shopsphere-backend.git
-   cd shopsphere-backend
-   ```
+### Create a Local Database
 
-2. Create the PostgreSQL database:
+```sql
+CREATE DATABASE shopsphere_db;
+CREATE DATABASE shopsphere_test_db;
+```
 
-   ```sql
-   CREATE DATABASE shopsphere_db;
-   ```
+### Configure Environment Variables
 
-3. Set environment variables.
+The application reads runtime configuration from environment variables.
 
 | Variable | Required | Description |
 |---|---|---|
-| `DB_URL` | Yes | JDBC URL, for example `jdbc:postgresql://localhost:5432/shopsphere_db` |
+| `DB_URL` | Yes | JDBC URL for the application database |
 | `DB_USERNAME` | Yes | PostgreSQL username |
 | `DB_PASSWORD` | Yes | PostgreSQL password |
-| `JWT_SECRET` | Yes | Random secret with at least 32 characters |
-| `JWT_EXPIRATION` | No | Token lifetime in milliseconds; default `86400000` |
-| `SERVER_PORT` | No | HTTP port; default `8080` |
+| `JWT_SECRET` | Yes | Strong private JWT signing secret |
+| `JWT_EXPIRATION` | No | Token lifetime in milliseconds; default is `86400000` |
+| `SERVER_PORT` | No | HTTP server port; default is `8080` |
+| `TEST_DB_URL` | For tests | JDBC URL for the isolated test database |
+| `TEST_DB_USERNAME` | For tests | Test database username |
+| `TEST_DB_PASSWORD` | For tests | Test database password |
 
-Windows PowerShell example:
+Example PowerShell configuration:
 
 ```powershell
 $env:DB_URL="jdbc:postgresql://localhost:5432/shopsphere_db"
 $env:DB_USERNAME="postgres"
-$env:DB_PASSWORD="your_password"
-$env:JWT_SECRET="your-long-random-secret-at-least-32-characters"
+$env:DB_PASSWORD="your_local_password"
+$env:JWT_SECRET="your_private_jwt_secret"
+$env:SERVER_PORT="8080"
 ```
 
-4. Run the application.
-
-Windows PowerShell:
+Run the application:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-macOS/Linux:
+The API starts at:
 
-```bash
-./mvnw spring-boot:run
+```text
+http://localhost:8080
 ```
 
-Flyway creates the schema from `src/main/resources/db/migration/V1__initial_schema.sql` on first startup. Hibernate validates the schema using `ddl-auto=validate`.
+Flyway creates the schema from:
 
-### Creating an admin
-
-Registration always creates a `CUSTOMER`. Create the first local admin with a BCrypt-hashed password:
-
-```sql
-INSERT INTO users (user_name, email, password, phone_no, role, created_at)
-VALUES ('Admin', 'admin@shopsphere.com', '<bcrypt-hash>', '9876543210', 'ADMIN', now());
+```text
+src/main/resources/db/migration/V1__initial_schema.sql
 ```
 
-Use a strong password outside local development.
+Hibernate validates the schema instead of creating it automatically.
 
-## Run with Docker
+## Docker Setup
 
-Docker starts ShopSphere and PostgreSQL in isolated containers. It does not use or modify an existing PostgreSQL database installed on your computer.
+Docker Compose starts ShopSphere and PostgreSQL together.
 
-1. Install and start Docker Desktop.
+### 1. Create Local Environment File
 
-2. Create the local Docker environment file:
+Copy the template:
 
-   Windows PowerShell:
+```powershell
+Copy-Item .env.example .env
+```
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+Edit `.env` with private local values:
 
-3. Update `.env` with local values:
+```properties
+DB_USERNAME=postgres
+DB_PASSWORD=your_local_database_password
+JWT_SECRET=your_private_jwt_secret
+```
 
-   ```properties
-   DB_USERNAME=postgres
-   DB_PASSWORD=replace-with-a-local-password
-   JWT_SECRET=replace-with-a-random-secret-at-least-32-characters
-   ```
+`.env` is ignored by Git and must never be committed.
 
-   Do not commit `.env`.
+### 2. Start the Application
 
-4. Build and start all containers:
+```powershell
+docker compose up --build
+```
 
-   ```bash
-   docker compose up --build
-   ```
+Run in the background:
 
-5. Open these resources:
+```powershell
+docker compose up -d
+```
 
-| Resource | URL |
-|---|---|
-| Swagger UI | `http://localhost:8080/swagger-ui/index.html` |
-| OpenAPI JSON | `http://localhost:8080/v3/api-docs` |
-| Docker PostgreSQL from host | `localhost:5433` |
+Check container status:
 
-On first Docker startup, Flyway automatically applies `V1__initial_schema.sql` to the Docker PostgreSQL database.
-
-Useful Docker commands:
-
-```bash
-# Show running containers
+```powershell
 docker compose ps
+```
 
-# Follow backend logs
+View logs:
+
+```powershell
 docker compose logs -f app
+```
 
-# Stop containers but preserve Docker PostgreSQL data
+Open Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+### Stop Containers
+
+```powershell
 docker compose down
+```
 
-# Stop containers and permanently delete Docker PostgreSQL data
+This stops containers while preserving the Docker database volume.
+
+To remove the Docker database completely:
+
+```powershell
 docker compose down -v
 ```
 
-> `docker compose down -v` deletes only the ShopSphere Docker database volume. Use it only when you need a fresh Docker database.
+> `down -v` deletes Docker-managed PostgreSQL data. Use it only when a fresh database is intended.
 
 ## API Overview
 
-Public endpoints:
+Public endpoints do not require authentication:
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login/me`
@@ -260,13 +286,13 @@ Public endpoints:
 - `GET /api/v1/categories/active/all`
 - Swagger UI and OpenAPI endpoints
 
-All other endpoints require:
+All other protected endpoints require:
 
-```text
+```http
 Authorization: Bearer <token>
 ```
 
-Base path:
+Base API path:
 
 ```text
 /api/v1
@@ -283,149 +309,149 @@ Admin endpoints are under:
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
 | POST | `/api/v1/auth/register` | Public | Register a customer |
-| POST | `/api/v1/auth/login/me` | Public | Log in and receive a JWT |
+| POST | `/api/v1/auth/login/me` | Public | Log in and receive JWT |
 
 ### Users
 
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
-| PUT | `/api/v1/users/{userId}` | Customer, own account | Update user details |
+| PUT | `/api/v1/users/{userId}` | Customer | Update own profile |
 | GET | `/api/v1/admin/users/all` | Admin | List users |
 | GET | `/api/v1/admin/users/{userId}` | Admin | Get user |
 | DELETE | `/api/v1/admin/users/{userId}` | Admin | Delete user |
 
 ### Categories
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| GET | `/api/v1/categories/active/all` | Public | List active categories |
-| GET | `/api/v1/categories/{categoryId}` | Authenticated | Get category |
-| GET | `/api/v1/admin/categories/all` | Admin | List all categories |
-| POST | `/api/v1/admin/categories` | Admin | Create category |
-| PUT | `/api/v1/admin/categories/{categoryId}` | Admin | Update category |
-| DELETE | `/api/v1/admin/categories/{categoryId}` | Admin | Deactivate category |
-| PATCH | `/api/v1/admin/categories/{categoryId}/active` | Admin | Reactivate category |
+| Method | Endpoint | Access |
+|---|---|---|
+| GET | `/api/v1/categories/active/all` | Public |
+| GET | `/api/v1/categories/{categoryId}` | Authenticated |
+| GET | `/api/v1/admin/categories/all` | Admin |
+| POST | `/api/v1/admin/categories` | Admin |
+| PUT | `/api/v1/admin/categories/{categoryId}` | Admin |
+| DELETE | `/api/v1/admin/categories/{categoryId}` | Admin |
+| PATCH | `/api/v1/admin/categories/{categoryId}/active` | Admin |
 
 ### Products
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| GET | `/api/v1/products/active/all` | Public | List active products |
-| GET | `/api/v1/products/{productId}` | Authenticated | Get active product |
-| GET | `/api/v1/admin/products/all` | Admin | List all products, including inactive |
-| POST | `/api/v1/admin/products` | Admin | Create product |
-| PUT | `/api/v1/admin/products/{productId}` | Admin | Update product |
-| DELETE | `/api/v1/admin/products/{productId}` | Admin | Deactivate product |
-| PATCH | `/api/v1/admin/products/{productId}/active` | Admin | Reactivate product |
+| Method | Endpoint | Access |
+|---|---|---|
+| GET | `/api/v1/products/active/all` | Public |
+| GET | `/api/v1/products/{productId}` | Authenticated |
+| GET | `/api/v1/admin/products/all` | Admin |
+| POST | `/api/v1/admin/products` | Admin |
+| PUT | `/api/v1/admin/products/{productId}` | Admin |
+| DELETE | `/api/v1/admin/products/{productId}` | Admin |
+| PATCH | `/api/v1/admin/products/{productId}/active` | Admin |
 
 ### Cart
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/cart/items` | Customer | Add item |
-| GET | `/api/v1/cart` | Customer | View cart |
-| PUT | `/api/v1/cart/items/{productId}?quantity=` | Customer | Update item quantity |
-| DELETE | `/api/v1/cart/items/{productId}` | Customer | Remove item |
-| DELETE | `/api/v1/cart` | Customer | Clear cart |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/cart/items` | Customer |
+| GET | `/api/v1/cart` | Customer |
+| PUT | `/api/v1/cart/items/{productId}?quantity=` | Customer |
+| DELETE | `/api/v1/cart/items/{productId}` | Customer |
+| DELETE | `/api/v1/cart` | Customer |
 
 ### Addresses
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/address` | Customer | Add address |
-| GET | `/api/v1/address/{addressId}` | Customer | Get address |
-| GET | `/api/v1/address/all` | Customer | List addresses |
-| PUT | `/api/v1/address/{addressId}` | Customer | Update address |
-| DELETE | `/api/v1/address/{addressId}` | Customer | Delete address |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/address` | Customer |
+| GET | `/api/v1/address/{addressId}` | Customer |
+| GET | `/api/v1/address/all` | Customer |
+| PUT | `/api/v1/address/{addressId}` | Customer |
+| DELETE | `/api/v1/address/{addressId}` | Customer |
 
 ### Wishlist
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/wishlist` | Customer | Add product |
-| GET | `/api/v1/wishlist/{wishlistId}` | Customer | Get wishlist item |
-| GET | `/api/v1/wishlist/all` | Customer | List wishlist |
-| DELETE | `/api/v1/wishlist/{wishlistId}` | Customer | Remove wishlist item |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/wishlist` | Customer |
+| GET | `/api/v1/wishlist/{wishlistId}` | Customer |
+| GET | `/api/v1/wishlist/all` | Customer |
+| DELETE | `/api/v1/wishlist/{wishlistId}` | Customer |
 
 ### Reviews
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/reviews/{productId}` | Customer | Add review |
-| GET | `/api/v1/reviews/{reviewId}` | Customer | Get review |
-| GET | `/api/v1/reviews/all/{productId}` | Customer | List product reviews |
-| PUT | `/api/v1/reviews/{reviewId}` | Customer | Update own review |
-| DELETE | `/api/v1/reviews/{reviewId}` | Customer | Delete own review |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/reviews/{productId}` | Customer |
+| GET | `/api/v1/reviews/{reviewId}` | Customer |
+| GET | `/api/v1/reviews/all/{productId}` | Customer |
+| PUT | `/api/v1/reviews/{reviewId}` | Customer |
+| DELETE | `/api/v1/reviews/{reviewId}` | Customer |
 
 ### Coupons
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/coupons/apply-coupon` | Customer | Preview discount |
-| POST | `/api/v1/admin/coupons` | Admin | Create coupon |
-| GET | `/api/v1/admin/coupons/{couponId}` | Admin | Get coupon |
-| GET | `/api/v1/admin/coupons/all` | Admin | List all coupons |
-| GET | `/api/v1/admin/coupons/all/active` | Admin | List active coupons |
-| PUT | `/api/v1/admin/coupons/{couponId}` | Admin | Update coupon |
-| DELETE | `/api/v1/admin/coupons/{couponId}` | Admin | Deactivate coupon |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/coupons/apply-coupon` | Customer |
+| POST | `/api/v1/admin/coupons` | Admin |
+| GET | `/api/v1/admin/coupons/{couponId}` | Admin |
+| GET | `/api/v1/admin/coupons/all` | Admin |
+| GET | `/api/v1/admin/coupons/all/active` | Admin |
+| PUT | `/api/v1/admin/coupons/{couponId}` | Admin |
+| DELETE | `/api/v1/admin/coupons/{couponId}` | Admin |
 
 ### Orders
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/orders?couponCode=` | Customer | Place order from cart |
-| GET | `/api/v1/orders/me` | Customer | List own orders |
-| GET | `/api/v1/orders/{orderId}` | Customer | Get own order |
-| POST | `/api/v1/orders/{orderId}/cancel` | Customer | Cancel placed order |
-| GET | `/api/v1/admin/orders/all` | Admin | List all orders |
-| PUT | `/api/v1/admin/orders/{orderId}/status` | Admin | Update status |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/orders?couponCode=` | Customer |
+| GET | `/api/v1/orders/me` | Customer |
+| GET | `/api/v1/orders/{orderId}` | Customer |
+| POST | `/api/v1/orders/{orderId}/cancel` | Customer |
+| GET | `/api/v1/admin/orders/all` | Admin |
+| PUT | `/api/v1/admin/orders/{orderId}/status` | Admin |
 
 ### Payments
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/payments/{orderId}` | Customer | Create payment |
-| GET | `/api/v1/payments/me` | Customer | List own payments |
-| PUT | `/api/v1/admin/payments/{paymentId}/success` | Admin | Mark payment successful |
-| PUT | `/api/v1/admin/payments/{paymentId}/failed` | Admin | Mark payment failed |
-| GET | `/api/v1/admin/payments/payment-history` | Admin | List payment history |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/payments/{orderId}` | Customer |
+| GET | `/api/v1/payments/me` | Customer |
+| PUT | `/api/v1/admin/payments/{paymentId}/success` | Admin |
+| PUT | `/api/v1/admin/payments/{paymentId}/failed` | Admin |
+| GET | `/api/v1/admin/payments/payment-history` | Admin |
 
-Payments are simulated. No real payment gateway is integrated.
+Payments are simulated. No real payment gateway is connected.
 
 ### Refunds
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| POST | `/api/v1/refund` | Customer | Request refund |
-| GET | `/api/v1/refund/{refundId}` | Customer | Get refund |
-| GET | `/api/v1/refund/payment/{paymentId}` | Customer | List payment refunds |
-| GET | `/api/v1/admin/refund/all` | Admin | List all refunds |
-| PUT | `/api/v1/admin/refund/{refundId}/status` | Admin | Complete or fail refund |
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/v1/refund` | Customer |
+| GET | `/api/v1/refund/{refundId}` | Customer |
+| GET | `/api/v1/refund/payment/{paymentId}` | Customer |
+| GET | `/api/v1/admin/refund/all` | Admin |
+| PUT | `/api/v1/admin/refund/{refundId}/status` | Admin |
 
-## API Documentation
+## Swagger UI
 
-Interactive API documentation is provided through springdoc-openapi.
+Swagger UI provides interactive API documentation and JWT authorization support.
 
-| Resource | URL |
+| Resource | Local URL |
 |---|---|
 | Swagger UI | `http://localhost:8080/swagger-ui/index.html` |
 | OpenAPI JSON | `http://localhost:8080/v3/api-docs` |
-| OpenAPI YAML | `http://localhost:8080/v3/api-docs.yaml` |
 
-To call protected endpoints:
+To use protected endpoints:
 
-1. Log in using `POST /api/v1/auth/login/me`.
-2. Copy the returned token.
+1. Register or log in.
+2. Copy the JWT token.
 3. Click **Authorize** in Swagger UI.
-4. Paste the token without the `Bearer ` prefix.
+4. Paste the token.
+5. Execute protected endpoints.
 
 ## Error Format
 
-Application exceptions return a consistent JSON response:
+Application errors are returned in JSON.
 
 ```json
 {
-  "timeStamp": "2026-10-31 15:55:06",
+  "timeStamp": "2026-11-10 12:00:00",
   "status": 400,
   "message": "Validation Failed",
   "errors": {
@@ -436,124 +462,116 @@ Application exceptions return a consistent JSON response:
 
 | Status | Meaning |
 |---|---|
-| 400 | Validation or business-rule failure |
-| 401 | Missing, expired, invalid JWT, or wrong credentials |
+| 400 | Validation failure or invalid business rule |
+| 401 | Missing, invalid, or expired JWT |
 | 403 | Authenticated user lacks permission |
-| 404 | Requested resource not found |
-| 409 | Duplicate data or invalid state transition |
+| 404 | Requested resource was not found |
+| 409 | Duplicate resource or invalid status transition |
 | 500 | Unexpected server error |
 
 ## Testing
 
-ShopSphere has **173 automated tests** covering services, controllers, security, and the complete order-payment-refund lifecycle.
+ShopSphere has **173 automated tests** covering service, security, controller, and PostgreSQL integration behavior.
 
-| Level | Test class | Tests | Coverage |
-|---|---|---:|---|
-| Service | `OrderServiceImplTest` | 56 | Transitions, cancellations, stock restoration, automatic refunds |
-| Service | `PaymentServiceImplTest` | 17 | Payment creation, retry, success/failed status handling |
-| Service | `RefundServiceImplTest` | 18 | Refund limits, ownership, completion/failure, payment reconciliation |
-| Service | `JWTServiceImplTest` | 7 | Token generation and validation |
-| Controller | `CartControllerApiTest` | 8 | Cart security, validation, responses |
-| Controller | `OrderControllerApiTest` | 6 | Order endpoints and roles |
-| Controller | `PaymentControllerApiTest` | 5 | Customer payment endpoints |
-| Controller | `RefundControllerApiTest` | 6 | Customer refund endpoints |
-| Controller | `UserControllerApiTest` | 5 | Registration and profile update |
-| Controller | `CatalogControllerApiTest` | 2 | Public catalog endpoints |
-| Controller | Admin controller tests | 20 | Admin product, category, payment, and refund endpoints |
-| Security | JWT and security tests | 14 | Filter, entry point, authorization rules |
-| Integration | `OrderPaymentRefundIntegrationTest` | 8 | PostgreSQL lifecycle, coupon, rollback, payment retry, refunds |
-| Integration | `ShopsphereBackendApplicationTests` | 1 | Application context startup |
+| Level | Coverage |
+|---|---|
+| Service tests | Order, payment, refund, JWT service behavior |
+| Controller tests | Cart, order, payment, refund, user, catalog, and admin endpoint responses |
+| Security tests | JWT filter, authentication entry point, access control |
+| Integration tests | Order → payment → refund lifecycle with real PostgreSQL |
+| Application test | Spring context startup |
 
-### Test database setup
+Run the complete test suite:
 
-Tests use the `test` profile with a separate PostgreSQL database.
-
-Create it once:
-
-```sql
-CREATE DATABASE shopsphere_test_db;
+```powershell
+.\mvnw.cmd clean verify
 ```
 
-Set these variables before running tests:
-
-| Variable | Description |
-|---|---|
-| `TEST_DB_URL` | Example: `jdbc:postgresql://localhost:5432/shopsphere_test_db` |
-| `TEST_DB_USERNAME` | Test database username |
-| `TEST_DB_PASSWORD` | Test database password |
-| `JWT_SECRET` | JWT secret for Spring context startup |
-
-Windows PowerShell:
+Before running tests, configure the isolated test database:
 
 ```powershell
 $env:TEST_DB_URL="jdbc:postgresql://localhost:5432/shopsphere_test_db"
 $env:TEST_DB_USERNAME="postgres"
-$env:TEST_DB_PASSWORD="your_password"
-$env:JWT_SECRET="your-long-random-secret-at-least-32-characters"
-
-.\mvnw.cmd clean verify
+$env:TEST_DB_PASSWORD="your_test_database_password"
 ```
 
-macOS/Linux:
-
-```bash
-./mvnw clean verify
-```
+> Tests use a separate database. Never point test configuration to the production or main development database.
 
 ## Continuous Integration
 
-GitHub Actions workflow: `.github/workflows/ci.yml`
+GitHub Actions runs automatically on every push and pull request to `main`.
 
-The **Backend CI** workflow runs on every push and pull request to `main`.
+The pipeline:
 
-1. Starts a PostgreSQL 18 service container.
-2. Creates `shopsphere_test_db`.
-3. Sets up Java 21 with Maven caching.
-4. Runs:
+1. Starts a PostgreSQL service container.
+2. Sets up Java 21.
+3. Runs the Maven test suite.
+4. Packages the Spring Boot application.
+5. Validates the Docker image build.
 
-   ```bash
-   ./mvnw -B clean verify
-   ```
+Workflow file:
 
-The workflow uses its own `TEST_DB_URL`, `TEST_DB_USERNAME`, `TEST_DB_PASSWORD`, and JWT values. It never accesses local, QA, or production databases.
+```text
+.github/workflows/ci.yml
+```
+
+## Deployment
+
+The production deployment uses:
+
+| Component | Provider |
+|---|---|
+| Spring Boot Docker service | Render |
+| PostgreSQL database | Neon |
+| Source code and CI | GitHub |
+
+Render environment variables:
+
+```text
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+JWT_SECRET
+JWT_EXPIRATION
+SERVER_PORT
+```
+
+The production database schema is applied automatically by Flyway at startup.
+
+No real credentials are stored in GitHub. Local secrets remain in `.env`, which is ignored by Git.
 
 ## Project Structure
 
 ```text
-.
-├── .github/workflows/ci.yml      # GitHub Actions CI
-├── .mvn/                         # Maven Wrapper files
-├── src/
-│   ├── main/
-│   │   ├── java/com/shopsphere/
-│   │   │   ├── config/            # Security and OpenAPI configuration
-│   │   │   ├── constant/          # Roles, statuses, enums
-│   │   │   ├── controller/        # REST controllers
-│   │   │   ├── dto/               # Request and response DTOs
-│   │   │   ├── entity/            # JPA entities
-│   │   │   ├── exception/         # Custom exceptions and global handler
-│   │   │   ├── mapper/            # DTO/entity mapping helpers
-│   │   │   ├── repository/        # Spring Data JPA repositories
-│   │   │   ├── security/          # JWT authentication components
-│   │   │   └── service/           # Business services
-│   │   └── resources/
-│   │       ├── application.properties
-│   │       └── db/migration/      # Flyway SQL migrations
-│   └── test/
-│       ├── java/com/shopsphere/
-│       │   ├── controllerTest/
-│       │   ├── integratedTest/
-│       │   ├── securityTest/
-│       │   └── service/serviceImplTest/
-│       └── resources/application-test.properties
-├── .dockerignore                  # Docker build exclusions
-├── .env.example                   # Safe Docker environment template
-├── docker-compose.yml             # Backend + PostgreSQL containers
-├── Dockerfile                     # Multi-stage Java image build
-├── mvnw
-├── mvnw.cmd
-├── pom.xml
-└── README.md
+com.shopsphere
+├── config          # Security, OpenAPI, application configuration
+├── constant        # Roles, order status, payment status, refund status
+├── controller      # REST controllers and admin controllers
+├── dto             # Request and response DTOs
+├── entity          # JPA entities
+├── exception       # Custom exceptions and global exception handler
+├── mapper          # DTO and entity mapping helpers
+├── repository      # Spring Data JPA repositories and locking queries
+├── security        # JWT filter, authentication, authorization handlers
+└── service         # Service interfaces and implementations
+
+src/main/resources
+├── application.properties
+└── db/migration
+    └── V1__initial_schema.sql
+
+src/test/java/com/shopsphere
+├── controllerTest
+├── integratedTest
+├── securityTest
+└── service/serviceImplTest
+
+.github/workflows
+└── ci.yml
+
+Dockerfile
+docker-compose.yml
+.env.example
 ```
 
 ## Roadmap
@@ -561,26 +579,28 @@ The workflow uses its own `TEST_DB_URL`, `TEST_DB_USERNAME`, `TEST_DB_PASSWORD`,
 Completed:
 
 - [x] JWT authentication and role-based authorization
-- [x] Order, payment, coupon, and refund workflows
-- [x] Transactional stock management and locking
-- [x] Unit, controller, security, and integration tests
-- [x] Flyway database migrations
+- [x] Order, payment, refund, cart, coupon, address, wishlist, and review workflows
+- [x] Service-level Mockito tests
+- [x] MockMvc controller and security tests
+- [x] PostgreSQL integration tests
+- [x] Flyway schema migration
 - [x] Swagger UI and OpenAPI documentation
-- [x] GitHub Actions CI with PostgreSQL
-- [x] Configuration through environment variables
-- [x] Dockerfile and Docker Compose one-command local setup
+- [x] Docker and Docker Compose setup
+- [x] GitHub Actions CI pipeline
+- [x] Public Render deployment with Neon PostgreSQL
 
 Planned improvements:
 
-- [ ] Richer endpoint documentation with `@Operation`, `@Tag`, examples, and response descriptions
-- [ ] Unit tests for cart, coupon, product, category, address, wishlist, review, and user services
-- [ ] Controller tests for coupons, addresses, wishlist, reviews, and login
-- [ ] Testcontainers PostgreSQL integration tests
-- [ ] Admin account seeding for local development
+- [ ] Richer OpenAPI annotations and endpoint examples
 - [ ] Pagination and filtering for list endpoints
-- [ ] Payment idempotency keys
-- [ ] Production deployment with protected secrets and a managed PostgreSQL database
-- [ ] Frontend integration
+- [ ] Unit tests for remaining services
+- [ ] Controller tests for coupons, addresses, wishlist, reviews, and login
+- [ ] Testcontainers integration tests
+- [ ] Admin account seeding for local development
+- [ ] Payment gateway integration
+- [ ] Email notifications
+- [ ] Rate limiting and production observability
+- [ ] Custom domain and paid always-on hosting when required
 
 ## License
 
@@ -590,5 +610,5 @@ This project is licensed under the MIT License. See [LICENSE.md](LICENSE.md).
 
 **Ajay Shankar Ganesh Eadara**
 
-- [LinkedIn](https://linkedin.com/in/ajay-shankar-ganesh-eadara-69821241a/)
 - [GitHub](https://github.com/ajayeadara2001)
+- [LinkedIn](https://linkedin.com/in/ajay-shankar-ganesh-eadara-69821241a/)
